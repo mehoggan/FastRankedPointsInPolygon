@@ -77,7 +77,7 @@ void loadWellKnownSetOfPoints(std::vector<Point> &points)
 {
   points.clear();
 
-  std::srand(std::time(0));
+  std::srand(static_cast<unsigned int>(std::time(0)));
 
   for (std::size_t id = 0; id < TOTAL_POINTS; ++id) {
     points.push_back({

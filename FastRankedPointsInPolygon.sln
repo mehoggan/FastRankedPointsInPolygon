@@ -10,8 +10,6 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TestFastRankedPointsInPolyg
 		{B835204D-38B3-4F02-B846-F7EC3B565BC4} = {B835204D-38B3-4F02-B846-F7EC3B565BC4}
 	EndProjectSection
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "GuiFastRankedPointsInPolygon", "GuiFastRankedPointsInPolygon\GuiFastRankedPointsInPolygon.vcxproj", "{890FF15C-4DE0-4425-8EE7-1F3E87F3E6E1}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -36,14 +34,6 @@ Global
 		{68F04285-CF2B-46B1-B0FA-FF347764DDE1}.Release|x64.Build.0 = Release|x64
 		{68F04285-CF2B-46B1-B0FA-FF347764DDE1}.Release|x86.ActiveCfg = Release|Win32
 		{68F04285-CF2B-46B1-B0FA-FF347764DDE1}.Release|x86.Build.0 = Release|Win32
-		{890FF15C-4DE0-4425-8EE7-1F3E87F3E6E1}.Debug|x64.ActiveCfg = Debug|x64
-		{890FF15C-4DE0-4425-8EE7-1F3E87F3E6E1}.Debug|x64.Build.0 = Debug|x64
-		{890FF15C-4DE0-4425-8EE7-1F3E87F3E6E1}.Debug|x86.ActiveCfg = Debug|Win32
-		{890FF15C-4DE0-4425-8EE7-1F3E87F3E6E1}.Debug|x86.Build.0 = Debug|Win32
-		{890FF15C-4DE0-4425-8EE7-1F3E87F3E6E1}.Release|x64.ActiveCfg = Release|x64
-		{890FF15C-4DE0-4425-8EE7-1F3E87F3E6E1}.Release|x64.Build.0 = Release|x64
-		{890FF15C-4DE0-4425-8EE7-1F3E87F3E6E1}.Release|x86.ActiveCfg = Release|Win32
-		{890FF15C-4DE0-4425-8EE7-1F3E87F3E6E1}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -2,8 +2,25 @@
 
 #include "ipoint_search.h"
 
+#include <vector>
+
 struct __declspec(dllexport) SearchContext
-{};
+{
+private:
+  Point* points_;
+  std::size_t size_;
+
+public:
+  explicit SearchContext(const std::vector<Point> &points);
+
+  ~SearchContext();
+
+  const Point* const points_const_ref() const;
+
+  Point* const points_ref();
+
+  std::size_t size() const;
+};
 
 extern "C" __declspec(dllexport) SearchContext* __stdcall create(
 	const Point* points_begin,
