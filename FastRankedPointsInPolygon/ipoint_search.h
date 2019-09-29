@@ -11,6 +11,9 @@
  * interface.
  */
 
+#ifndef IPOINT_SEARCH_H_
+#define IPOINT_SEARCH_H_
+
 #include "pch.h"
 
 // This standard header defines the sized types used.
@@ -80,3 +83,5 @@ typedef int32_t (__stdcall* T_search)(
 typedef SearchContext* (__stdcall* T_destroy)(
   SearchContext* sc
 );
+
+#endif

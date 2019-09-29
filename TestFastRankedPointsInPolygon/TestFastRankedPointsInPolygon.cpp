@@ -1,6 +1,7 @@
 #include <point_search.h>
 
 #include <algorithm>
+#include <chrono>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -12,6 +13,17 @@
 
 #include <windows.h> 
 #include <stdio.h>
+
+#define _CRTDBG_MAP_ALLOC
+#include <stdlib.h>
+#include <crtdbg.h>
+
+#ifdef _DEBUG
+#define _CRTDBG_MAP_ALLOC
+#define DBG_NEW new ( _NORMAL_BLOCK , __FILE__ , __LINE__ )
+#else
+#define DBG_NEW new
+#endif
 
 typedef SearchContext *(__stdcall *CREATEPROC)(
   const Point *points_begin,
@@ -90,7 +102,7 @@ CLI loadCommandLine(
 
 void loadPoints(const std::string& file_name, std::vector<Point> &outPoints)
 {
-  std::cout << "Loading points..." << std::endl;
+  std::cout << "Creating points..." << std::endl;
   std::ifstream reader(file_name.c_str());
   if (reader.is_open()) {
     int16_t id;
@@ -110,41 +122,25 @@ void loadPoints(const std::string& file_name, std::vector<Point> &outPoints)
       outPoints.push_back({ static_cast<int8_t>(id), rank, x, y });
     }
   }
-  std::cout << "Done loading points." << std::endl;
+  std::cout << "Done creating points " << outPoints.size() << "." << std::endl;
 }
 
-void randomRectFromPoints(const std::vector<Point> &points, Rect& outRect)
+Rect extents(const Point *points, std::size_t count)
 {
-  std::cout << "Generating rectangle..." << std::endl;
   float maxY = -(std::numeric_limits<float>::max)();
   float minY = +(std::numeric_limits<float>::min)();
   float maxX = -(std::numeric_limits<float>::max)();
   float minX = +(std::numeric_limits<float>::min)();
 
-  std::for_each(points.cbegin(), points.cend(),
-    [&](const Point& p)
-    {
-      if (p.x < minX) {
-        minX = p.x;
-      }
+  for (std::size_t i = 0; i < count; ++i) {
+    const Point& p = points[i];
+    if (p.x < minX) minX = p.x;
+    if (p.x > maxX) maxX = p.x;
+    if (p.y < minY) minY = p.y;
+    if (p.y > maxY) maxY = p.y;
+  }
 
-      if (p.x > maxX) {
-        maxX = p.x;
-      }
-
-      if (p.y < minY) {
-        minY = p.y;
-      }
-
-      if (p.y > maxY) {
-        maxY = p.y;
-      }
-    });
-
-  outRect = { minX, minY, maxX, maxY };
-  std::cout << "Generated rectangle: lx = " << outRect.lx << " ly = "
-    << outRect.ly << " hx = " << outRect.hx << " hy = " << outRect.hy
-    << std::endl;
+  return { minX, minY, maxX, maxY };
 }
 
 bool runDLL(const std::string& dllName, const std::vector<Point> &points)
@@ -177,23 +173,28 @@ bool runDLL(const std::string& dllName, const std::vector<Point> &points)
     if (runTimeLinkSuccess) {
       std::cout << "Running " << dllName << "..." << std::endl;
 
-      SearchContext *sc = (*CreateProc)(
-        &points[0], &points[points.size() - 1]);
+      auto start = std::chrono::steady_clock::now();
+      SearchContext *sc = nullptr;
+      sc = (*CreateProc)(
+        &points[0], (points.data() + points.size()));
+      auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>
+        (std::chrono::steady_clock::now() - start);
+      std::cout << "Createing SearchContext took "
+        << duration.count() << " nanoseconds." << std::endl;
 
       std::int32_t expected = static_cast<int32_t>(0.1 * points.size());
 
-      Rect rect = { 0.0f, 0.0f, 0.0f, 0.0f };
       Point *answer = new Point[expected];
-      randomRectFromPoints(points, rect);
-      std::cout << "Searching for top " << expected << " points in "
-        << " lx = " << rect.lx << " ly = " << rect.ly
-        << " hx = " << rect.hx << " hy = " << rect.hy
-    << std::endl;
+      start = std::chrono::steady_clock::now();
       int32_t pointsCopied = (*SearchProc)(
         sc, 
-        rect,
+        extents(points.data(), points.size()),
         expected,
         answer);
+      duration = std::chrono::duration_cast<std::chrono::nanoseconds>
+        (std::chrono::steady_clock::now() - start);
+      std::cout << "Search took " << duration.count()
+        << " nanoseconds." << std::endl;
 
       std::cout << "In order points are..." << std::endl;
       for (int32_t point_i = 0; point_i < pointsCopied; ++point_i) {
@@ -208,8 +209,14 @@ bool runDLL(const std::string& dllName, const std::vector<Point> &points)
             << std::setprecision(19) << p->y
           << std::endl;
       }
+      delete[] answer;
 
+      start = std::chrono::steady_clock::now();
       sc = (*DestroyProc)(sc);
+      duration = std::chrono::duration_cast<std::chrono::nanoseconds>
+        (std::chrono::steady_clock::now() - start);
+      std::cout << "Destroy took " << duration.count()
+        << " nanoseconds." << std::endl;
       if (sc != nullptr) {
         std::cerr << "Failed to destroy SearchContext!!!" << std::endl;
       }
@@ -226,18 +233,19 @@ bool runDLL(const std::string& dllName, const std::vector<Point> &points)
 
 int main(int argc, char *argv[])
 {
+  _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
   int ret = EXIT_SUCCESS;
 
   CLI cli = loadCommandLine(argc, argv);
   if (cli.success_) {
+    std::vector<Point> points;
+    if (!cli.points_file_path_.empty()) {
+      loadPoints(cli.points_file_path_, points);
+    }
+
     std::for_each(cli.dlls_.begin(), cli.dlls_.end(),
       [&](const std::string& dllName)
       {
-        std::vector<Point> points;
-        if (!cli.points_file_path_.empty()) {
-          loadPoints(cli.points_file_path_, points);
-        }
-
         bool ran = runDLL(dllName, points);
         if (!ran) {
           std::cerr << "Failed to run " << dllName << std::endl;
@@ -250,6 +258,8 @@ int main(int argc, char *argv[])
   else {
     ret = EXIT_FAILURE;
   }
+
+  _CrtDumpMemoryLeaks();
 
   return ret;
 }
