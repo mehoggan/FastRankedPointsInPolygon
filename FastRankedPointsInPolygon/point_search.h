@@ -5,23 +5,31 @@
 
 #include "ipoint_search.h"
 
+#include "boost/geometry.hpp"
+#include <boost/geometry/geometries/register/point.hpp>
+#include "boost/geometry/index/rtree.hpp"
+
+#include <tuple>
 #include <vector>
 
 struct __declspec(dllexport) SearchContext
 {
+private:
+  static constexpr std::size_t MAX_PARTITION_SIZE = 50;
+
 public:
-  SearchContext(Point *points, std::size_t count);
+  typedef boost::geometry::index::rtree<Point,
+    boost::geometry::index::dynamic_rstar> RTree;
+
+public:
+  SearchContext(const Point *points_begin, const Point *points_end);
 
   ~SearchContext();
 
-  const Point* const __stdcall points_const_ref() const;
+  RTree& rtree();
 
-  Point* const __stdcall points_ref();
-
-  std::size_t __stdcall size() const;
-
-  Point* points_;
-  std::size_t size_;
+private:
+  RTree* rtree_;
 };
 
 extern "C" __declspec(dllexport) SearchContext* __stdcall create(
@@ -35,10 +43,6 @@ extern "C" __declspec(dllexport) int32_t __stdcall search(
 	const int32_t count, Point* out_points);
 
 extern "C" __declspec(dllexport) SearchContext* __stdcall destroy(
-	SearchContext* sc
-);
-
-extern "C" __declspec(dllexport) Rect __stdcall bounds(
 	SearchContext* sc
 );
 
