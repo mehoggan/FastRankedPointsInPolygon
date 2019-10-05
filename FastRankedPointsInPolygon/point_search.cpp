@@ -9,6 +9,9 @@
 
 #include "io.h"
 
+#include "boost/geometry.hpp"
+#include "boost/geometry/geometries/register/point.hpp"
+
 namespace bg = boost::geometry;
 namespace bgi = boost::geometry::index;
 // Register the point type
@@ -17,12 +20,11 @@ BOOST_GEOMETRY_REGISTER_POINT_2D(Point, float, cs::cartesian, x, y)
 
 ///////// Search Context /////////
 SearchContext::SearchContext(
-  const Point *points_begin, const Point *points_end)
+  const Point* points_begin, const Point* points_end)
 {
   auto start = std::chrono::high_resolution_clock::now();
-  rtree_ = new RTree(points_begin, points_end,
-    boost::geometry::index::dynamic_rstar(MAX_PARTITION_SIZE));
   auto stop = std::chrono::high_resolution_clock::now();
+  rtree_ = new RTree(points_begin, points_end);
   auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
     stop - start);
 }
@@ -62,22 +64,50 @@ __declspec(dllexport) int32_t __stdcall search(
     return 0;
   }
 
-  auto start = std::chrono::high_resolution_clock::now();
-  std::vector<Point> query_results;
-  typedef bg::model::point<float, 2, bg::cs::cartesian> point;
-  boost::geometry::model::box<point> query_rect(
-    { rect.lx, rect.ly }, { rect.hx, rect.hy });
-  sc->rtree().query(boost::geometry::index::intersects(query_rect),
-    std::back_inserter(query_results));
-  auto stop = std::chrono::high_resolution_clock::now();
-  auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
-    stop - start);
-  // std::cout << std::endl << "It took " << duration.count() << " milliseconds "
-  //   << " to query for " << rect << std::endl;
+  std::for_each(out_points, out_points + count,
+    [&](Point& p)
+    {
+      p.rank = (std::numeric_limits<int32_t>::max)();
+    });
 
-  // TODO: Actually return results.
+  boost::geometry::model::box<bg::model::point<float, 2, bg::cs::cartesian>>
+    query_rect( { rect.lx, rect.ly }, { rect.hx, rect.hy });
+  auto query_it = bgi::qbegin(sc->rtree(), bgi::intersects(query_rect));
 
-  return 0;
+  int32_t end_i = 0;
+  Point* end = nullptr;
+  while (query_it != bgi::qend(sc->rtree())) {
+    const Point* p = &(*(query_it));
+    if (end != nullptr && p->rank > end->rank) {
+      ++query_it;
+      continue;
+    }
+
+    int32_t i = 0;
+    Point tmp = out_points[i];
+    while (i < count) {
+      const int32_t prank = p->rank;
+      const int32_t irank = out_points[i].rank;
+      if (prank < irank) {
+        Point tmp = out_points[i];
+        out_points[i] = *p;
+        while (i <= end_i) {
+          ++i;
+          std::swap(tmp, out_points[i]);
+        }
+        break;
+      }
+      ++i;
+    }
+
+    if (i <= count && i > end_i) {
+      end_i = i;
+      end = &out_points[(std::min)(end_i, count - 1)];
+    }
+    ++query_it;
+  }
+
+  return end_i;
 }
 
 __declspec(dllexport) SearchContext* __stdcall destroy(
@@ -89,11 +119,4 @@ __declspec(dllexport) SearchContext* __stdcall destroy(
   }
 
   return sc;
-}
-
-///////// Internal Functions with Implementation /////////
-inline bool in_rect(const Rect& rect, const Point& point)
-{
-  return ((point.x >= rect.lx && point.x <= rect.hx) &&
-    (point.y >= rect.ly && point.y <= rect.hy));
 }

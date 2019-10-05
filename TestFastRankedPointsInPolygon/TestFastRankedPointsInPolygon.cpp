@@ -1,3 +1,7 @@
+#define _CRTDBG_MAP_ALLOC
+#include <stdlib.h>
+#include <crtdbg.h>
+
 #include <point_search.h>
 
 #include <algorithm>
@@ -13,17 +17,6 @@
 
 #include <windows.h> 
 #include <stdio.h>
-
-#define _CRTDBG_MAP_ALLOC
-#include <stdlib.h>
-#include <crtdbg.h>
-
-#ifdef _DEBUG
-#define _CRTDBG_MAP_ALLOC
-#define DBG_NEW new ( _NORMAL_BLOCK , __FILE__ , __LINE__ )
-#else
-#define DBG_NEW new
-#endif
 
 typedef SearchContext *(__stdcall *CREATEPROC)(
   const Point *points_begin,
@@ -44,13 +37,10 @@ struct CLI
 
   static bool file_exists(const std::string &file)
   {
-    WIN32_FIND_DATA FindFileData;
-    HANDLE handle = FindFirstFile(file.c_str(), &FindFileData);
-    int found = handle != INVALID_HANDLE_VALUE;
-    if(found)  {
-       FindClose(handle);
-    }
-    return found;
+    std::ifstream in(file.c_str());
+    bool ret = in.is_open();
+    in.close();
+    return ret;
   }
 };
 
@@ -233,7 +223,6 @@ bool runDLL(const std::string& dllName, const std::vector<Point> &points)
 
 int main(int argc, char *argv[])
 {
-  _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
   int ret = EXIT_SUCCESS;
 
   CLI cli = loadCommandLine(argc, argv);
