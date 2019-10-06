@@ -172,13 +172,14 @@ bool runDLL(const std::string& dllName, const std::vector<Point> &points)
       std::cout << "Createing SearchContext took "
         << duration.count() << " nanoseconds." << std::endl;
 
-      std::int32_t expected = static_cast<int32_t>(0.1 * points.size());
-
+      // std::int32_t expected = static_cast<int32_t>(0.1 * points.size());
+      std::int32_t expected = 1000;
+      auto rect = extents(points.data(), points.size());
       Point *answer = new Point[expected];
       start = std::chrono::steady_clock::now();
       int32_t pointsCopied = (*SearchProc)(
         sc, 
-        extents(points.data(), points.size()),
+        rect,
         expected,
         answer);
       duration = std::chrono::duration_cast<std::chrono::nanoseconds>

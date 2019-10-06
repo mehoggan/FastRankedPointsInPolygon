@@ -1,10 +1,7 @@
 #include "point_search.h"
 
 #include <algorithm>
-#include <bitset>
-#include <chrono>
 #include <cstdint>
-#include <unordered_map>
 #include <vector>
 
 #include "io.h"
@@ -12,22 +9,14 @@
 #include "boost/geometry.hpp"
 #include "boost/geometry/geometries/register/point.hpp"
 
-namespace bg = boost::geometry;
-namespace bgi = boost::geometry::index;
 // Register the point type
-
 BOOST_GEOMETRY_REGISTER_POINT_2D(Point, float, cs::cartesian, x, y)
 
 ///////// Search Context /////////
-SearchContext::SearchContext(
-  const Point* points_begin, const Point* points_end)
-{
-  auto start = std::chrono::high_resolution_clock::now();
-  auto stop = std::chrono::high_resolution_clock::now();
-  rtree_ = new RTree(points_begin, points_end);
-  auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
-    stop - start);
-}
+typedef const Point* cPointPtr;
+SearchContext::SearchContext(cPointPtr points_begin, cPointPtr points_end) :
+  rtree_(new RTree(points_begin, points_end))
+{}
 
 SearchContext::~SearchContext()
 {
@@ -64,40 +53,38 @@ __declspec(dllexport) int32_t __stdcall search(
     return 0;
   }
 
+  // Set all the ranks to max to assist in sorting in place in out_points.
   std::for_each(out_points, out_points + count,
     [&](Point& p)
     {
       p.rank = (std::numeric_limits<int32_t>::max)();
     });
 
+  // DO THE ACTUAL QUERY!!!
   boost::geometry::model::box<bg::model::point<float, 2, bg::cs::cartesian>>
     query_rect( { rect.lx, rect.ly }, { rect.hx, rect.hy });
   auto query_it = bgi::qbegin(sc->rtree(), bgi::intersects(query_rect));
 
+  // Process the results.
   int32_t end_i = 0;
   Point* end = nullptr;
   while (query_it != bgi::qend(sc->rtree())) {
     const Point* p = &(*(query_it));
-    if (end != nullptr && p->rank > end->rank) {
+
+    // If our ranks are all filled in and sorted and we find a new rank
+    // greater than our current greatest then we do not need to cosider it.
+    if (end_i == count && p->rank > end->rank) {
       ++query_it;
       continue;
     }
 
-    int32_t i = 0;
+    auto it = std::lower_bound(out_points, out_points + end_i, *p);
+    int i = std::distance(out_points, it);
     Point tmp = out_points[i];
-    while (i < count) {
-      const int32_t prank = p->rank;
-      const int32_t irank = out_points[i].rank;
-      if (prank < irank) {
-        Point tmp = out_points[i];
-        out_points[i] = *p;
-        while (i <= end_i) {
-          ++i;
-          std::swap(tmp, out_points[i]);
-        }
-        break;
-      }
+    out_points[i] = *p;
+    while (i <= end_i) {
       ++i;
+      std::swap(tmp, out_points[i]);
     }
 
     if (i <= count && i > end_i) {

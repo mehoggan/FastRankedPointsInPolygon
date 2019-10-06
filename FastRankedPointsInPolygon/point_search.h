@@ -10,14 +10,16 @@
 
 #include "boost/geometry/index/rtree.hpp"
 
+namespace bg = boost::geometry;
+namespace bgi = boost::geometry::index;
+
 struct __declspec(dllexport) SearchContext
 {
 private:
-  static constexpr std::size_t MAX_PARTITION_SIZE = 100;
+  static constexpr std::size_t MAX_PARTITION_SIZE = 500;
 
 public:
-  typedef boost::geometry::index::rtree<Point,
-    boost::geometry::index::quadratic<MAX_PARTITION_SIZE>> RTree;
+  typedef bgi::rtree<Point, bgi::linear<MAX_PARTITION_SIZE>> RTree;
 
 public:
   SearchContext(const Point *points_begin, const Point *points_end);
@@ -43,5 +45,10 @@ extern "C" __declspec(dllexport) int32_t __stdcall search(
 extern "C" __declspec(dllexport) SearchContext* __stdcall destroy(
 	SearchContext* sc
 );
+
+bool operator<(const Point& pleft, const Point& pright) noexcept
+{
+  return pleft.rank < pright.rank;
+}
 
 #endif
