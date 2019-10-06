@@ -78,8 +78,12 @@ __declspec(dllexport) int32_t __stdcall search(
       continue;
     }
 
+    // Binary search for the item that this sits below.
     auto it = std::lower_bound(out_points, out_points + end_i, *p);
     int i = std::distance(out_points, it);
+
+    // Scoot everything down one to make room for the new point with
+    // the lowest rank.
     Point tmp = out_points[i];
     out_points[i] = *p;
     while (i <= end_i) {
@@ -87,6 +91,7 @@ __declspec(dllexport) int32_t __stdcall search(
       std::swap(tmp, out_points[i]);
     }
 
+    // Update where the end of the current sorted ranks are.
     if (i <= count && i > end_i) {
       end_i = i;
       end = &out_points[(std::min)(end_i, count - 1)];
