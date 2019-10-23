@@ -1,5 +1,3 @@
-#pragma once
-
 #ifndef IO_H_
 #define IO_H_
 

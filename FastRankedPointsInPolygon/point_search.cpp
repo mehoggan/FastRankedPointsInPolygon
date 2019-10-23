@@ -6,26 +6,44 @@
 
 #include "io.h"
 
-#include "boost/geometry.hpp"
-#include "boost/geometry/geometries/register/point.hpp"
-
-// Register the point type
-BOOST_GEOMETRY_REGISTER_POINT_2D(Point, float, cs::cartesian, x, y)
-
 ///////// Search Context /////////
-typedef const Point* cPointPtr;
 SearchContext::SearchContext(cPointPtr points_begin, cPointPtr points_end) :
-  rtree_(new RTree(points_begin, points_end))
+  quad_tree_(new quad_tree(points_begin, points_end, 5, 75))
 {}
 
 SearchContext::~SearchContext()
 {
-  delete rtree_;
+  delete quad_tree_;
 }
 
-SearchContext::RTree& SearchContext::rtree()
+quad_tree*& SearchContext::tree()
 {
-  return *rtree_;
+  return quad_tree_;
+}
+
+///////// Helper Function     /////////
+__declspec(dllexport) bool __stdcall intersect(
+  const Rect& a,
+  const Rect& b)
+{
+  bool ret = true;
+  ret &= a.lx <= b.hx;
+  ret &= a.hx >= b.lx;
+  ret &= a.ly <= b.hy;
+  ret &= a.hy >= b.ly;
+  return ret;
+}
+
+__declspec(dllexport) bool __stdcall intersect_point(
+  const Point& a,
+  const Rect& b)
+{
+  bool ret = true;
+  ret &= a.x >= b.lx;
+  ret &= a.x <= b.hx;
+  ret &= a.y >= b.ly;
+  ret &= a.y <= b.hy;
+  return ret;
 }
 
 ///////// Interface Functions /////////
@@ -44,48 +62,33 @@ __declspec(dllexport) SearchContext* __stdcall create(
 }
 
 __declspec(dllexport) int32_t __stdcall search(
-  SearchContext *sc,
+  SearchContext* sc,
   const Rect rect,
   const int32_t count,
-  Point *out_points)
+  Point* out_points)
 {
   if (sc == nullptr || count <= 0 || out_points == nullptr) {
     return 0;
   }
 
-  // Set all the ranks to max to assist in sorting in place in out_points.
-  std::for_each(out_points, out_points + count,
-    [&](Point& p)
-    {
-      p.rank = (std::numeric_limits<int32_t>::max)();
-    });
-
-  // DO THE ACTUAL QUERY!!!
-  boost::geometry::model::box<bg::model::point<float, 2, bg::cs::cartesian>>
-    query_rect( { rect.lx, rect.ly }, { rect.hx, rect.hy });
-  auto query_it = bgi::qbegin(sc->rtree(), bgi::intersects(query_rect));
-
-  // Process the results.
   int32_t end_i = 0;
   Point* end = nullptr;
-  while (query_it != bgi::qend(sc->rtree())) {
-    const Point* p = &(*(query_it));
-
+  std::function<void(const Point & p)> lambda = [&](const Point& point)
+  {
     // If our ranks are all filled in and sorted and we find a new rank
     // greater than our current greatest then we do not need to cosider it.
-    if (end_i == count && p->rank > end->rank) {
-      ++query_it;
-      continue;
+    if (end_i == count && point.rank > end->rank) {
+      return;
     }
 
     // Binary search for the item that this sits below.
-    auto it = std::lower_bound(out_points, out_points + end_i, *p);
+    auto it = std::lower_bound(out_points, out_points + end_i, point);
     int i = std::distance(out_points, it);
 
     // Scoot everything down one to make room for the new point with
     // the lowest rank.
     Point tmp = out_points[i];
-    out_points[i] = *p;
+    out_points[i] = point;
     while (i <= end_i) {
       ++i;
       std::swap(tmp, out_points[i]);
@@ -96,9 +99,11 @@ __declspec(dllexport) int32_t __stdcall search(
       end_i = i;
       end = &out_points[(std::min)(end_i, count - 1)];
     }
-    ++query_it;
-  }
+  };
 
+  // sc->tree()->query(rect, lambda);
+
+  std::cout << "Returning " << end_i << " elements." << std::endl;
   return end_i;
 }
 

@@ -1,36 +1,35 @@
-#pragma once
-
 #ifndef POINT_SEARCH_H
 #define POINT_SEARCH_H
 
 #include "ipoint_search.h"
 
+#include <iostream>
 #include <tuple>
 #include <vector>
 
-#include "boost/geometry/index/rtree.hpp"
-
-namespace bg = boost::geometry;
-namespace bgi = boost::geometry::index;
+#include "quad_tree.h"
 
 struct __declspec(dllexport) SearchContext
 {
-private:
-  static constexpr std::size_t MAX_PARTITION_SIZE = 500;
-
 public:
-  typedef bgi::rtree<Point, bgi::linear<MAX_PARTITION_SIZE>> RTree;
-
-public:
-  SearchContext(const Point *points_begin, const Point *points_end);
+  typedef const Point* cPointPtr;
+  SearchContext(cPointPtr points_begin, cPointPtr points_end);
 
   ~SearchContext();
 
-  RTree& rtree();
+  quad_tree*& tree();
 
 private:
-  RTree* rtree_;
+  quad_tree* quad_tree_;
 };
+
+extern "C" __declspec(dllexport) bool __stdcall intersect(
+  const Rect& a,
+  const Rect& b);
+
+extern "C" __declspec(dllexport) bool __stdcall intersect_point(
+  const Point& a,
+  const Rect& b);
 
 extern "C" __declspec(dllexport) SearchContext* __stdcall create(
 	const Point* points_begin,
@@ -46,7 +45,7 @@ extern "C" __declspec(dllexport) SearchContext* __stdcall destroy(
 	SearchContext* sc
 );
 
-bool operator<(const Point& pleft, const Point& pright) noexcept
+inline bool operator<(const Point& pleft, const Point& pright) noexcept
 {
   return pleft.rank < pright.rank;
 }
