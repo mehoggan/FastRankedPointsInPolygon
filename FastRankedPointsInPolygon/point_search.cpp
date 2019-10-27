@@ -8,7 +8,7 @@
 
 ///////// Search Context /////////
 SearchContext::SearchContext(cPointPtr points_begin, cPointPtr points_end) :
-  quad_tree_(new quad_tree(points_begin, points_end, 5, 75))
+  quad_tree_(new quad_tree(points_begin, points_end, 5, 900))
 {}
 
 SearchContext::~SearchContext()
@@ -73,37 +73,29 @@ __declspec(dllexport) int32_t __stdcall search(
 
   int32_t end_i = 0;
   Point* end = nullptr;
-  std::function<void(const Point & p)> lambda = [&](const Point& point)
-  {
-    // If our ranks are all filled in and sorted and we find a new rank
-    // greater than our current greatest then we do not need to cosider it.
-    if (end_i == count && point.rank > end->rank) {
-      return;
-    }
+  sc->tree()->query(rect,
+    [&](const Point& point)
+    {
+      if (end_i == count && point.rank > end->rank) {
+        return;
+      } else {
+        auto it = std::lower_bound(out_points, out_points + end_i, point);
+        std::int32_t i = std::distance(out_points, it);
+        Point tmp = out_points[i];
+        out_points[i] = point;
+        while (i <= end_i) {
+          ++i;
+          if (i < count) {
+            std::swap(tmp, out_points[i]);
+          }
+        }
+        if (i <= count && i > end_i) {
+          end_i = i;
+          end = &out_points[(std::min)(end_i, count - 1)];
+        }
+      }
+    });
 
-    // Binary search for the item that this sits below.
-    auto it = std::lower_bound(out_points, out_points + end_i, point);
-    int i = std::distance(out_points, it);
-
-    // Scoot everything down one to make room for the new point with
-    // the lowest rank.
-    Point tmp = out_points[i];
-    out_points[i] = point;
-    while (i <= end_i) {
-      ++i;
-      std::swap(tmp, out_points[i]);
-    }
-
-    // Update where the end of the current sorted ranks are.
-    if (i <= count && i > end_i) {
-      end_i = i;
-      end = &out_points[(std::min)(end_i, count - 1)];
-    }
-  };
-
-  // sc->tree()->query(rect, lambda);
-
-  std::cout << "Returning " << end_i << " elements." << std::endl;
   return end_i;
 }
 

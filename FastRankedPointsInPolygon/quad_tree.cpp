@@ -35,9 +35,9 @@ int8_t __stdcall quad_tree::msb64(register uint64_t x)
   x = only_msb64_on(x);
   if (x & 0x0000000000000001ull) {
     depth = 0ull;
-  } else if (x & 0x2000000000000000ull) {
+  } else if (x & 0x1000000000000000ull) {
     depth = max_depth();
-  } else if (x & 0xC000000000000000ull) {
+  } else if (x & 0x8000000000000000ull) {
     throw std::runtime_error("Invalid key provided to msb64.");
   } else {
     uint64_t mask = 0x0000000080000000ull;
@@ -280,19 +280,18 @@ uint32_t __stdcall quad_tree::step_size_at_depth(uint8_t depth)
   return x_integer_space_ >> depth;
 }
 
-quad_tree::node::node(uint64_t quad_key, quad_tree& parent) :
-  quad_key_(quad_key),
-  children_(),
-  parent_(parent)
-{}
+quad_tree::node::node(uint64_t quad_key) :
+  quad_key_(quad_key)
+{
+  children_[0] = nullptr;
+  children_[1] = nullptr;
+  children_[2] = nullptr;
+  children_[3] = nullptr;
+}
 
 quad_tree::node::~node()
 {
-  for (std::size_t i = 0; i < 4; ++i) {
-    if (children_[i] != nullptr) {
-      delete children_[i];
-    }
-  }
+  points_.clear();
 }
 
 void __stdcall quad_tree::node::set_data(
@@ -302,32 +301,12 @@ void __stdcall quad_tree::node::set_data(
   auto size = std::distance(begin, end);
   points_.resize(size);
   std::vector<Point*>::iterator it = begin;
-
-#if _DEBUG
-  Rect qk_bounds;
-  quad_tree::compute_bounds_for_quad_key(
-    quad_key_,
-    parent_.global_bounds(),
-    qk_bounds);
-#endif
-
   std::size_t index = 0;
-  while (it != end) {
+  while (it < end) {
     points_[index] = **it;
     ++it;
     ++index;
-#if _DEBUG
-    if (*it == nullptr) {
-      int x = 0;
-      x = x;
-    }
-    bool is_valid = intersect_point(**it, qk_bounds);
-    if (!is_valid) {
-      assert(is_valid && "Failed to bucket point correctly.");
-    }
-#endif
   }
-  parent_.update_point_count(index);
 }
 
 void __stdcall quad_tree::node::set_child(const ChildId id, node* child)
@@ -341,8 +320,7 @@ __stdcall quad_tree::quad_tree(
   const std::size_t min_block_size,
   const std::size_t max_block_size) :
   root_(nullptr),
-  global_bounds_({}),
-  point_count_(0)
+  global_bounds_({})
 {
   if (point_begin == nullptr || point_end == nullptr) {
     return;
@@ -360,8 +338,7 @@ __stdcall quad_tree::quad_tree(
   const std::size_t min_block_size,
   const std::size_t max_block_size) :
   root_(nullptr),
-  global_bounds_({}),
-  point_count_(0)
+  global_bounds_({})
 {
   if (begin == end) {
     return;
@@ -371,7 +348,7 @@ __stdcall quad_tree::quad_tree(
 
 __stdcall quad_tree::~quad_tree()
 {
-  delete root_;
+  destroy_tree(root_);
 }
 
 const Rect& __stdcall quad_tree::global_bounds() const
@@ -384,16 +361,6 @@ void __stdcall quad_tree::query(
   std::function<void(const Point & point)> contained_callback)
 {
   traverse_tree_by_bounds(root_, query_rect, contained_callback);
-}
-
-void __stdcall quad_tree::update_point_count(std::size_t count)
-{
-  point_count_ += count;
-}
-
-std::size_t __stdcall quad_tree::point_count() const
-{
-  return point_count_;
 }
 
 void __stdcall quad_tree::compute_bounds(
@@ -427,12 +394,8 @@ void __stdcall quad_tree::create(
   const std::size_t max_block_size)
 {
   compute_bounds(begin, end, global_bounds_);
-  root_ = new node(compute_quad_key(**begin, 0u, global_bounds_), *this);
+  root_ = new node(compute_quad_key(**begin, 0u, global_bounds_));
   build_tree(root_, begin, end, 0u, min_block_size, max_block_size);
-  std::cout << "Global bounds = " << global_bounds_ << std::endl;
-  std::cout << "Nodes report " << point_count_ << " points inserted."
-    << std::endl;
-  print_tree(root_);
 }
 
 void __stdcall quad_tree::build_tree(node* node, 
@@ -448,32 +411,70 @@ void __stdcall quad_tree::build_tree(node* node,
     return;
   }
 
-  if (count <= max_block_size || depth == max_depth()) {
-    node->set_data(begin, end);
-  } else {
+  typedef std::tuple<uint64_t, std::vector<Point*>, std::size_t> BucketItem_t;
+  std::function<quad_tree::node * (BucketItem_t&)> build_node =
+    [&](BucketItem_t& bucket_item)
+    {
+      auto& id = std::get<0>(bucket_item);
+      quad_tree::node* ret = new quad_tree::node(id);
+      return ret;
+    };
 
+  if (count > max_block_size && depth != max_depth()) {
     Bucket_t buckets;
     get_buckets(begin, end, depth, count, global_bounds_, buckets);
-    for (std::size_t i = 0; i < 4; ++i) {
-      auto& id = std::get<0>(buckets[i]);
-      auto& vec = std::get<1>(buckets[i]);
-      auto& cnt = std::get<2>(buckets[i]);
-      if (vec.empty()) {
-        continue;
-      } else if (cnt >= max_block_size) {
-        node->children_[i] = new quad_tree::node(id, *this);
-        build_tree(
-          node->children_[i],
-          vec.begin(),
-          vec.begin() + cnt,
-          depth + 1,
-          min_block_size,
-          max_block_size);
-      } else {
-        node->set_data(vec.begin(), vec.begin() + cnt - 1);
-      }
+
+    if (std::get<2>(buckets[0]) != 0) {
+      quad_tree::node* child0 = build_node(buckets[0]);
+      node->children_[0] = child0;
+      build_tree(
+        child0,
+        std::get<1>(buckets[0]).begin(),
+        std::get<1>(buckets[0]).begin() + std::get<2>(buckets[0]),
+        depth + 1,
+        min_block_size,
+        max_block_size);
     }
+
+    if (std::get<2>(buckets[1]) != 0) {
+      quad_tree::node* child1 = build_node(buckets[1]);
+      node->children_[1] = child1;
+      build_tree(
+        child1,
+        std::get<1>(buckets[1]).begin(),
+        std::get<1>(buckets[1]).begin() + std::get<2>(buckets[1]),
+        depth + 1,
+        min_block_size,
+        max_block_size);
+    }
+
+    if (std::get<2>(buckets[2]) != 0) {
+      quad_tree::node* child2 = build_node(buckets[2]);
+      node->children_[2] = child2;
+      build_tree(
+        child2,
+        std::get<1>(buckets[2]).begin(),
+        std::get<1>(buckets[2]).begin() + std::get<2>(buckets[2]),
+        depth + 1,
+        min_block_size,
+        max_block_size);
+    }
+
+    if (std::get<2>(buckets[3]) != 0) {
+      quad_tree::node* child3 = build_node(buckets[3]);
+      node->children_[3] = child3;
+      build_tree(
+        child3,
+        std::get<1>(buckets[3]).begin(),
+        std::get<1>(buckets[3]).begin() + std::get<2>(buckets[3]),
+        depth + 1,
+        min_block_size,
+        max_block_size);
+    }
+  } else {
+    node->set_data(begin, end);
   }
+
 }
 
 void __stdcall quad_tree::traverse_tree_by_bounds(
@@ -499,33 +500,76 @@ void __stdcall quad_tree::traverse_tree_by_bounds(
             }
           });
       } else {
-        for (std::size_t i = 0; i < 4; ++i) {
-          node* child = curr->children_[i];
-          traverse_tree_by_bounds(child, bounds, contained_callback);
-        }
+        traverse_tree_by_bounds(
+          curr->children_[0], bounds, contained_callback);
+        traverse_tree_by_bounds(
+          curr->children_[1], bounds, contained_callback);
+        traverse_tree_by_bounds(
+          curr->children_[2], bounds, contained_callback);
+        traverse_tree_by_bounds(
+          curr->children_[3], bounds, contained_callback);
       }
     }
   }
 }
 
-void __stdcall quad_tree::print_tree(node* curr)
+std::size_t __stdcall quad_tree::size() const
+{
+  std::size_t ret = 0;
+  quad_tree::size_recursive(root_, ret);
+  return ret;
+}
+
+void __stdcall quad_tree::destroy_tree(node* curr)
 {
   if (curr == nullptr) {
     return;
   } else {
-    for (std::size_t i = 0; i < 4; ++i) {
-      print_tree(curr->children_[i]);
-      if (!curr->points_.empty()) {
-        Rect quad_key_bounds;
-        quad_tree::compute_bounds_for_quad_key(
-          curr->quad_key_,
-          global_bounds_,
-          quad_key_bounds);
-        std::cout << "key = " << std::hex << curr->quad_key_ << " bounds = "
-          << quad_key_bounds << " points size " << std::dec
-          << curr->points_.size() << std::endl;
-      }
-    }
+    destroy_tree(curr->children_[0]);
+    destroy_tree(curr->children_[1]);
+    destroy_tree(curr->children_[2]);
+    destroy_tree(curr->children_[3]);
+    delete curr;
+    curr = nullptr;
+  }
+}
+
+void __stdcall quad_tree::size_recursive(node* curr, std::size_t& count) const
+{
+  if (curr == nullptr) {
+    return;
+  } else if (!curr->points_.empty()) {
+    count += curr->points_.size();
+  } else {
+    size_recursive(curr->children_[0], count);
+    size_recursive(curr->children_[1], count);
+    size_recursive(curr->children_[2], count);
+    size_recursive(curr->children_[3], count);
+  }
+}
+
+void __stdcall quad_tree::print_tree(node* curr)
+{
+  std::function<void (node*)> print_leaf = [this](node* to_print)
+    {
+      Rect quad_key_bounds;
+      quad_tree::compute_bounds_for_quad_key(
+        to_print->quad_key_,
+        global_bounds_,
+        quad_key_bounds);
+      std::cout << "key = " << to_print->quad_key_ << " bounds = "
+        << quad_key_bounds << " points size " << std::dec
+        << to_print->points_.size() << std::endl;
+    };
+
+  if (curr == nullptr) {
+    return;
+  } else {
+    print_leaf(curr);
+    print_tree(curr->children_[0]);
+    print_tree(curr->children_[1]);
+    print_tree(curr->children_[2]);
+    print_tree(curr->children_[3]);
   }
 }
 
@@ -551,14 +595,7 @@ void __stdcall quad_tree::get_buckets(std::vector<Point*>::iterator begin,
   while (it != end) {
     Point& p = **it;
     uint64_t c_pid = compute_quad_key(p, depth + 1, global_bounds);
-
     std::size_t bucket_index = c_pid - min_id;
-
-    if (bucket_index == 0) {
-      int x = 0;
-      x = x;
-    }
-
     auto& vec = std::get<1>(out_buckets[bucket_index]);
     std::size_t& index = std::get<2>(out_buckets[bucket_index]);
     if (index >= vec.size()) {

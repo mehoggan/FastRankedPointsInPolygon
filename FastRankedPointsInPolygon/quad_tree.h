@@ -59,9 +59,9 @@ private:
       UpperRight = 3
     };
 
-    node(uint64_t quad_key, quad_tree& parent);
+    explicit __stdcall node(uint64_t quad_key);
 
-    ~node();
+    __stdcall ~node();
 
     void __stdcall set_data(
       std::vector<Point *>::iterator begin,
@@ -72,7 +72,6 @@ private:
     uint64_t quad_key_;
     std::vector<Point> points_;
     node* children_[4];
-    quad_tree& parent_;
   };
 
   typedef std::tuple<uint64_t, std::vector<Point*>, uint64_t> Bucket_t[4];
@@ -100,9 +99,7 @@ public:
   void __stdcall query(const Rect& query_rect,
     std::function<void(const Point & point)> contained_callback);
 
-  void __stdcall update_point_count(std::size_t count);
-
-  std::size_t __stdcall point_count() const;
+  std::size_t __stdcall size() const;
 
 public:
   static void __stdcall compute_bounds(
@@ -137,6 +134,10 @@ private:
 
   void __stdcall print_tree(node* curr);
 
+  void __stdcall destroy_tree(node* curr);
+
+  void __stdcall size_recursive(node* curr, std::size_t& count) const;
+
 private:
   static void __stdcall get_buckets(std::vector<Point *>::iterator begin,
     std::vector<Point*>::iterator end, uint8_t depth, std::size_t count,
@@ -148,7 +149,6 @@ private:
 private:
   node* root_;
   Rect global_bounds_;
-  std::size_t point_count_;
 };
 
 #endif
