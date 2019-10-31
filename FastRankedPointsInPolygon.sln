@@ -5,12 +5,12 @@ VisualStudioVersion = 16.0.29306.81
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "FastRankedPointsInPolygon", "FastRankedPointsInPolygon\FastRankedPointsInPolygon.vcxproj", "{B835204D-38B3-4F02-B846-F7EC3B565BC4}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TestFastRankedPointsInPolygon", "TestFastRankedPointsInPolygon\TestFastRankedPointsInPolygon.vcxproj", "{68F04285-CF2B-46B1-B0FA-FF347764DDE1}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "FastRankedPointsInPolygonRunner", "TestFastRankedPointsInPolygon\TestFastRankedPointsInPolygon.vcxproj", "{68F04285-CF2B-46B1-B0FA-FF347764DDE1}"
 	ProjectSection(ProjectDependencies) = postProject
 		{B835204D-38B3-4F02-B846-F7EC3B565BC4} = {B835204D-38B3-4F02-B846-F7EC3B565BC4}
 	EndProjectSection
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TestFastRankedPointInPolygon", "TestFastRankedPointInPolygon\TestFastRankedPointInPolygon.vcxproj", "{39DCF70E-5660-4656-A113-5866CA1B5376}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "UnitTestFastRankedPointInPolygon", "UnitTestFastRankedPointInPolygon\UnitTestFastRankedPointInPolygon.vcxproj", "{39DCF70E-5660-4656-A113-5866CA1B5376}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

@@ -186,9 +186,9 @@
     <ProjectReference Include="..\FastRankedPointsInPolygon\FastRankedPointsInPolygon.vcxproj">
       <Project>{b835204d-38b3-4f02-b846-f7ec3b565bc4}</Project>
     </ProjectReference>
-    <ProjectReference Include="..\TestFastRankedPointInPolygon\TestFastRankedPointInPolygon.vcxproj">
-      <Project>{39dcf70e-5660-4656-a113-5866ca1b5376}</Project>
-    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="churchill_data.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

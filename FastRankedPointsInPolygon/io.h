@@ -3,26 +3,39 @@
 
 #include <iomanip>
 #include <iostream>
+#include <sstream>
 
 #include "ipoint_search.h"
 
 inline std::ostream& operator<<(std::ostream& out, const Rect& rect)
 {
-  out << "<[" << rect.lx << ", " << rect.ly << "], ["
-    << rect.hx << ", " << rect.hy << "]>";
+  out << "{" << rect.lx << ", " << rect.ly << ", " << rect.hx << ", "
+    << rect.hy << "}";
   return out;
 }
 
 inline std::ostream& operator<<(std::ostream& out, const Point& point)
 {
-  out << " id  = " << std::setw(10) << std::setfill(' ')
-    << static_cast<int>(point.id)
-    << " rank = " << std::setw(20) << std::setfill(' ') << point.rank
-    << " x  = " << std::setw(20) << std::setfill(' ')
-    << std::setprecision(19) << point.x
-    << " y = " << std::setw(20) << std::setfill(' ')
-    << std::setprecision(19) << point.y;
+  out << "{" << static_cast<int>(point.id) << ", " << point.rank << ", "
+    << std::setprecision(19) << point.x << ", "
+    << std::setprecision(19) << point.y << "}"; 
   return out;
+
+}
+
+inline std::stringstream& operator<<(std::stringstream& ss, const Rect& rect)
+{
+  ss << "{" << rect.lx << ", " << rect.ly << ", " << rect.hx << ", "
+    << rect.hy << "}";
+  return ss;
+}
+
+inline std::stringstream& operator<<(std::stringstream& ss, const Point& point)
+{
+  ss << "{" << static_cast<int>(point.id) << ", " << point.rank << ", "
+    << std::setprecision(19) << point.x << ", "
+    << std::setprecision(19) << point.y << "}"; 
+  return ss;
 }
 
 #endif

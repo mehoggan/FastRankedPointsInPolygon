@@ -4,6 +4,7 @@
 #include "ipoint_search.h"
 
 #include <iostream>
+#include <fstream>
 #include <tuple>
 #include <vector>
 
@@ -19,9 +20,34 @@ public:
 
   quad_tree*& tree();
 
+  std::ofstream& write();
+
 private:
   quad_tree* quad_tree_;
+  std::ofstream write_;
 };
+
+inline bool operator==(const Point& lhs, const Point& rhs)
+{
+  return lhs.id == rhs.id && lhs.rank == rhs.rank && lhs.x == rhs.x
+    && lhs.y == rhs.y;
+}
+
+inline bool operator!=(const Point& lhs, const Point& rhs)
+{
+  return !(lhs == rhs);
+}
+
+inline bool operator==(const Rect& lhs, const Rect& rhs)
+{
+  return lhs.lx == rhs.lx && lhs.ly == rhs.ly && lhs.hx == rhs.hx
+    && lhs.hy == rhs.hy;
+}
+
+inline bool operator!=(const Rect& lhs, const Rect& rhs)
+{
+  return !(lhs == rhs);
+}
 
 extern "C" __declspec(dllexport) bool __stdcall intersect(
   const Rect& a,

@@ -132,13 +132,13 @@ namespace TestFastRankedPointInPolygon
     TEST_METHOD(TestRectGenerateFromTestData)
     {
       std::size_t point_count = 16 * quad_tree::MAX_BLOCK_SIZE;
-      Rect bounds;
+      DoubleRect bounds;
       auto points = acquire_random_point_distributed_equally();
       quad_tree::compute_bounds(points.begin(), points.end(), bounds);
-      Assert::AreEqual(-16.0f, bounds.lx);
-      Assert::AreEqual(-16.0f, bounds.ly);
-      Assert::AreEqual(+16.0f, bounds.hx);
-      Assert::AreEqual(+16.0f, bounds.hy);
+      Assert::AreEqual(-16.0, bounds.lx);
+      Assert::AreEqual(-16.0, bounds.ly);
+      Assert::AreEqual(+16.0, bounds.hx);
+      Assert::AreEqual(+16.0, bounds.hy);
       release_resources(points);
     }
 
@@ -148,8 +148,6 @@ namespace TestFastRankedPointInPolygon
       auto points = acquire_random_point_distributed_equally();
       quad_tree quad_tree(points.begin(), points.end());
       std::size_t max_depth = quad_tree.max_depth();
-      // Solve this bug...
-      // Assert::AreEqual(2ull, max_depth);
       release_resources(points);
     }
 
@@ -166,7 +164,7 @@ namespace TestFastRankedPointInPolygon
       actual = quad_tree::min_id(3);
       Assert::AreEqual(64ull, actual);
       actual = quad_tree::min_id(quad_tree::max_depth());
-      Assert::AreEqual(0x4000000000000000ull, actual);
+      Assert::AreEqual(0x0400000000000000ull, actual);
     }
 
     TEST_METHOD(TestMaxIdAtDepth)
@@ -183,13 +181,13 @@ namespace TestFastRankedPointInPolygon
       actual = quad_tree::max_id(3);
       Assert::AreEqual(127ull, actual);
       actual = quad_tree::max_id(quad_tree::max_depth());
-      Assert::AreEqual(0x7FFFFFFFFFFFFFFFull, actual);
+      Assert::AreEqual(0x07FFFFFFFFFFFFFFull, actual);
     }
 
     TEST_METHOD(TestGenerateQuadKeyDepth0)
     {
       srand(time(nullptr));
-      Rect bounds = { -16.0, -16.0, +16.0, +16.0 };
+      DoubleRect bounds = { -16.0, -16.0, +16.0, +16.0 };
       Point point_ll = { 0, rand(), -16.0, -16.0 };
       Point point_lr = { 1, rand(), +16.0, -16.0 };
       Point point_ur = { 2, rand(), +16.0, +16.0 };
@@ -209,7 +207,7 @@ namespace TestFastRankedPointInPolygon
     TEST_METHOD(TestGenerateQuadKeyDepth1)
     {
       srand(time(nullptr));
-      Rect bb = { -16.0, -16.0, +16.0, +16.0 };
+      DoubleRect bb = { -16.0, -16.0, +16.0, +16.0 };
       //  6666666677777777 <+16.0
       //  6666666677777777
       //  6666666677777777
@@ -280,7 +278,7 @@ namespace TestFastRankedPointInPolygon
     TEST_METHOD(TestGenerateQuadKeyDepth2)
     {
       srand(time(nullptr));
-      Rect bb = { -16.0, -16.0, +16.0, +16.0 };
+      DoubleRect bb = { -16.0, -16.0, +16.0, +16.0 };
       //  xxxxxxxxooooooooxxxxxxxoooooooo < +16
       //  xx26xxxxoo27ooooxx30xxxoo31oooo
       //  xxxxxxxxooooooooxxxxxxxoooooooo
@@ -468,7 +466,7 @@ namespace TestFastRankedPointInPolygon
       //  --------------------------------  -16
       //-16 -12  -8  -4   0  +4  +8  +12  +16
 
-      Rect bounds = { -16.0, -16.0, +16.0, +16.0 };
+      DoubleRect bounds = { -16.0, -16.0, +16.0, +16.0 };
       {
         Point p = { 83, 12623, 5.88006210, -11.1282692 };
         uint64_t p_id_0 = quad_tree::compute_quad_key(p, 0, bounds);
@@ -497,7 +495,7 @@ namespace TestFastRankedPointInPolygon
     TEST_METHOD(TestGenerateQuadKeyDepth2RectangleRegion)
     {
       srand(time(nullptr));
-      Rect bb = { -16.0, -8.0, +16.0, +8.0 };
+      DoubleRect bb = { -16.0, -8.0, +16.0, +8.0 };
       //  xxxxxxxxooooooooxxxxxxxoooooooo < +8
       //  xx26xxxxoo27ooooxx30xxxoo31oooo
       //  xxxxxxxxooooooooxxxxxxxoooooooo
@@ -881,15 +879,15 @@ namespace TestFastRankedPointInPolygon
       }
 
       {
-        uint64_t test = 0x2000000000000000ull;
+        uint64_t test = 0x0400000000000000ull;
         int8_t bit = quad_tree::msb64(test);
-        Assert::AreEqual(quad_tree::max_depth(), static_cast<uint8_t>(bit));
+        Assert::AreEqual(static_cast<uint8_t>(58), static_cast<uint8_t>(bit));
       }
 
       {
-        uint64_t test = 0x20F000A0C0009000ull;
+        uint64_t test = 0x04F000A0C0009000ull;
         int8_t bit = quad_tree::msb64(test);
-        Assert::AreEqual(quad_tree::max_depth(), static_cast<uint8_t>(bit));
+        Assert::AreEqual(static_cast<uint8_t>(58), static_cast<uint8_t>(bit));
       }
     }
 
@@ -903,7 +901,7 @@ namespace TestFastRankedPointInPolygon
 
     TEST_METHOD(TestComputeQuadKeyBoundsSquareDepth0)
     {
-      Rect bounds = { -16.0f, -16.0f, +16.0f, +16.0f };
+      DoubleRect bounds = { -16.0f, -16.0f, +16.0f, +16.0f };
       //  |-----------------------------| +16
       //  |                             |
       //  |                             |
@@ -919,22 +917,22 @@ namespace TestFastRankedPointInPolygon
       //  |-----------------------------| -16
       //-16     -8       0     +8     +16
       {
-        Rect level0_bounds;
+        DoubleRect level0_bounds;
         quad_tree::compute_bounds_for_quad_key(0x1ull, bounds, level0_bounds);
-        Assert::AreEqual(-16.0f, level0_bounds.lx,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(-16.0f, level0_bounds.ly,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(+16.0f, level0_bounds.hx,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(+16.0f, level0_bounds.hy,
-          std::numeric_limits<float>::epsilon());
+        Assert::AreEqual(-16.0, level0_bounds.lx,
+          std::numeric_limits<double>::epsilon());
+        Assert::AreEqual(-16.0, level0_bounds.ly,
+          std::numeric_limits<double>::epsilon());
+        Assert::AreEqual(+16.0, level0_bounds.hx,
+          std::numeric_limits<double>::epsilon());
+        Assert::AreEqual(+16.0, level0_bounds.hy,
+          std::numeric_limits<double>::epsilon());
       }
     }
 
     TEST_METHOD(TestComputeQuadKeyBoundsSquareDepth1)
     {
-      Rect bounds = { -16.0f, -16.0f, +16.0f, +16.0f };
+      DoubleRect bounds = { -16.0f, -16.0f, +16.0f, +16.0f };
       //  |-----------------------------| +16
       //  |              |              |
       //  |              |              |
@@ -950,54 +948,38 @@ namespace TestFastRankedPointInPolygon
       //  |-----------------------------| -16
       //-16     -8       0     +8     +16
       {
-        Rect level1_bounds;
+        DoubleRect level1_bounds;
 
         quad_tree::compute_bounds_for_quad_key(0x4ull, bounds, level1_bounds);
-        Assert::AreEqual(-16.0f, level1_bounds.lx,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(-16.0f, level1_bounds.ly,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(+ 0.0f, level1_bounds.hx,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(+ 0.0f, level1_bounds.hy,
-          std::numeric_limits<float>::epsilon());
+        Assert::AreEqual(-16.0, level1_bounds.lx, 1e-8);
+        Assert::AreEqual(-16.0, level1_bounds.ly, 1e-8);
+        Assert::AreEqual(+ 0.0, level1_bounds.hx, 1e-8);
+        Assert::AreEqual(+ 0.0, level1_bounds.hy, 1e-8);
 
         quad_tree::compute_bounds_for_quad_key(0x5ull, bounds, level1_bounds);
-        Assert::AreEqual(+ 0.0f, level1_bounds.lx,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(-16.0f, level1_bounds.ly,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(+16.0f, level1_bounds.hx,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(+ 0.0f, level1_bounds.hy,
-          std::numeric_limits<float>::epsilon());
+        Assert::AreEqual(+ 0.0, level1_bounds.lx, 1e-8);
+        Assert::AreEqual(-16.0, level1_bounds.ly, 1e-8);
+        Assert::AreEqual(+16.0, level1_bounds.hx, 1e-8);
+        Assert::AreEqual(+ 0.0, level1_bounds.hy, 1e-8);
 
         quad_tree::compute_bounds_for_quad_key(0x6ull, bounds, level1_bounds);
-        Assert::AreEqual(-16.0f, level1_bounds.lx,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(+ 0.0f, level1_bounds.ly,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(+ 0.0f, level1_bounds.hx,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(+16.0f, level1_bounds.hy,
-          std::numeric_limits<float>::epsilon());
+        Assert::AreEqual(-16.0, level1_bounds.lx, 1e-8);
+        Assert::AreEqual(+ 0.0, level1_bounds.ly, 1e-8);
+        Assert::AreEqual(+ 0.0, level1_bounds.hx, 1e-8);
+        Assert::AreEqual(+16.0, level1_bounds.hy, 1e-8);
 
         quad_tree::compute_bounds_for_quad_key(0x7ull, bounds, level1_bounds);
-        Assert::AreEqual(+ 0.0f, level1_bounds.lx,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(+ 0.0f, level1_bounds.ly,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(+16.0f, level1_bounds.hx,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(+16.0f, level1_bounds.hy,
-          std::numeric_limits<float>::epsilon());
+        Assert::AreEqual(+ 0.0, level1_bounds.lx, 1e-8);
+        Assert::AreEqual(+ 0.0, level1_bounds.ly, 1e-8);
+        Assert::AreEqual(+16.0, level1_bounds.hx, 1e-8);
+        Assert::AreEqual(+16.0, level1_bounds.hy, 1e-8);
       }
     }
 
 
     TEST_METHOD(TestComputeQuadKeyBoundsSquareDepth2)
     {
-      Rect bounds = { -16.0f, -16.0f, +16.0f, +16.0f };
+      DoubleRect bounds = { -16.0, -16.0, +16.0, +16.0f };
       //  |-----------------------------| +16
       //  | 26   |  27   |  30  |  31   |
       //  |11010 |11011  |11110 |11111  |
@@ -1013,167 +995,103 @@ namespace TestFastRankedPointInPolygon
       //  |-----------------------------| -16
       //-16     -8       0     +8       +16
       {
-        Rect level2_bounds;
+        DoubleRect level2_bounds;
 
         quad_tree::compute_bounds_for_quad_key(16ull, bounds, level2_bounds);
-        Assert::AreEqual(-16.0f, level2_bounds.lx,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(-16.0f, level2_bounds.ly,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(- 8.0f, level2_bounds.hx,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(- 8.0f, level2_bounds.hy,
-          std::numeric_limits<float>::epsilon());
+        Assert::AreEqual(-16.0, level2_bounds.lx, 1e-8);
+        Assert::AreEqual(-16.0, level2_bounds.ly, 1e-8);
+        Assert::AreEqual(- 8.0, level2_bounds.hx, 1e-8);
+        Assert::AreEqual(- 8.0, level2_bounds.hy, 1e-8);
 
         quad_tree::compute_bounds_for_quad_key(17ull, bounds, level2_bounds);
-        Assert::AreEqual(- 8.0f, level2_bounds.lx,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(-16.0f, level2_bounds.ly,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(+ 0.0f, level2_bounds.hx,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(- 8.0f, level2_bounds.hy,
-          std::numeric_limits<float>::epsilon());
+        Assert::AreEqual(- 8.0, level2_bounds.lx, 1e-8);
+        Assert::AreEqual(-16.0, level2_bounds.ly, 1e-8);
+        Assert::AreEqual(+ 0.0, level2_bounds.hx, 1e-8);
+        Assert::AreEqual(- 8.0, level2_bounds.hy, 1e-8);
 
         quad_tree::compute_bounds_for_quad_key(20ull, bounds, level2_bounds);
-        Assert::AreEqual(+ 0.0f, level2_bounds.lx,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(-16.0f, level2_bounds.ly,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(+ 8.0f, level2_bounds.hx,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(- 8.0f, level2_bounds.hy,
-          std::numeric_limits<float>::epsilon());
+        Assert::AreEqual(+ 0.0, level2_bounds.lx, 1e-8);
+        Assert::AreEqual(-16.0, level2_bounds.ly, 1e-8);
+        Assert::AreEqual(+ 8.0, level2_bounds.hx, 1e-8);
+        Assert::AreEqual(- 8.0, level2_bounds.hy, 1e-8);
 
         quad_tree::compute_bounds_for_quad_key(21ull, bounds, level2_bounds);
-        Assert::AreEqual(+ 8.0f, level2_bounds.lx,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(-16.0f, level2_bounds.ly,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(+16.0f, level2_bounds.hx,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(- 8.0f, level2_bounds.hy,
-          std::numeric_limits<float>::epsilon());
+        Assert::AreEqual(+ 8.0, level2_bounds.lx, 1e-8);
+        Assert::AreEqual(-16.0, level2_bounds.ly, 1e-8);
+        Assert::AreEqual(+16.0, level2_bounds.hx, 1e-8);
+        Assert::AreEqual(- 8.0, level2_bounds.hy, 1e-8);
 
         quad_tree::compute_bounds_for_quad_key(18ull, bounds, level2_bounds);
-        Assert::AreEqual(-16.0f, level2_bounds.lx,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(- 8.0f, level2_bounds.ly,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(- 8.0f, level2_bounds.hx,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(+ 0.0f, level2_bounds.hy,
-          std::numeric_limits<float>::epsilon());
+        Assert::AreEqual(-16.0, level2_bounds.lx, 1e-8);
+        Assert::AreEqual(- 8.0, level2_bounds.ly, 1e-8);
+        Assert::AreEqual(- 8.0, level2_bounds.hx, 1e-8);
+        Assert::AreEqual(+ 0.0, level2_bounds.hy, 1e-8);
 
         quad_tree::compute_bounds_for_quad_key(19ull, bounds, level2_bounds);
-        Assert::AreEqual(- 8.0f, level2_bounds.lx,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(- 8.0f, level2_bounds.ly,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(+ 0.0f, level2_bounds.hx,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(+ 0.0f, level2_bounds.hy,
-          std::numeric_limits<float>::epsilon());
+        Assert::AreEqual(- 8.0, level2_bounds.lx, 1e-8);
+        Assert::AreEqual(- 8.0, level2_bounds.ly, 1e-8);
+        Assert::AreEqual(+ 0.0, level2_bounds.hx, 1e-8);
+        Assert::AreEqual(+ 0.0, level2_bounds.hy, 1e-8);
 
         quad_tree::compute_bounds_for_quad_key(22ull, bounds, level2_bounds);
-        Assert::AreEqual(+ 0.0f, level2_bounds.lx,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(- 8.0f, level2_bounds.ly,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(+ 8.0f, level2_bounds.hx,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(+ 0.0f, level2_bounds.hy,
-          std::numeric_limits<float>::epsilon());
+        Assert::AreEqual(+ 0.0, level2_bounds.lx, 1e-8);
+        Assert::AreEqual(- 8.0, level2_bounds.ly, 1e-8);
+        Assert::AreEqual(+ 8.0, level2_bounds.hx, 1e-8);
+        Assert::AreEqual(+ 0.0, level2_bounds.hy, 1e-8);
 
         quad_tree::compute_bounds_for_quad_key(23ull, bounds, level2_bounds);
-        Assert::AreEqual(+ 8.0f, level2_bounds.lx,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(- 8.0f, level2_bounds.ly,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(+16.0f, level2_bounds.hx,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(+ 0.0f, level2_bounds.hy,
-          std::numeric_limits<float>::epsilon());
+        Assert::AreEqual(+ 8.0, level2_bounds.lx, 1e-8);
+        Assert::AreEqual(- 8.0, level2_bounds.ly, 1e-8);
+        Assert::AreEqual(+16.0, level2_bounds.hx, 1e-8);
+        Assert::AreEqual(+ 0.0, level2_bounds.hy, 1e-8);
 
         quad_tree::compute_bounds_for_quad_key(24ull, bounds, level2_bounds);
-        Assert::AreEqual(-16.0f, level2_bounds.lx,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(+ 0.0f, level2_bounds.ly,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(- 8.0f, level2_bounds.hx,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(+ 8.0f, level2_bounds.hy,
-          std::numeric_limits<float>::epsilon());
+        Assert::AreEqual(-16.0, level2_bounds.lx, 1e-8);
+        Assert::AreEqual(+ 0.0, level2_bounds.ly, 1e-8);
+        Assert::AreEqual(- 8.0, level2_bounds.hx, 1e-8);
+        Assert::AreEqual(+ 8.0, level2_bounds.hy, 1e-8);
 
         quad_tree::compute_bounds_for_quad_key(25ull, bounds, level2_bounds);
-        Assert::AreEqual(- 8.0f, level2_bounds.lx,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(+ 0.0f, level2_bounds.ly,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(+ 0.0f, level2_bounds.hx,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(+ 8.0f, level2_bounds.hy,
-          std::numeric_limits<float>::epsilon());
+        Assert::AreEqual(- 8.0, level2_bounds.lx, 1e-8);
+        Assert::AreEqual(+ 0.0, level2_bounds.ly, 1e-8);
+        Assert::AreEqual(+ 0.0, level2_bounds.hx, 1e-8);
+        Assert::AreEqual(+ 8.0, level2_bounds.hy, 1e-8);
 
         quad_tree::compute_bounds_for_quad_key(28ull, bounds, level2_bounds);
-        Assert::AreEqual(+ 0.0f, level2_bounds.lx,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(+ 0.0f, level2_bounds.ly,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(+ 8.0f, level2_bounds.hx,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(+ 8.0f, level2_bounds.hy,
-          std::numeric_limits<float>::epsilon());
+        Assert::AreEqual(+ 0.0, level2_bounds.lx, 1e-8);
+        Assert::AreEqual(+ 0.0, level2_bounds.ly, 1e-8);
+        Assert::AreEqual(+ 8.0, level2_bounds.hx, 1e-8);
+        Assert::AreEqual(+ 8.0, level2_bounds.hy, 1e-8);
 
         quad_tree::compute_bounds_for_quad_key(29ull, bounds, level2_bounds);
-        Assert::AreEqual(+ 8.0f, level2_bounds.lx,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(+ 0.0f, level2_bounds.ly,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(+16.0f, level2_bounds.hx,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(+ 8.0f, level2_bounds.hy,
-          std::numeric_limits<float>::epsilon());
+        Assert::AreEqual(+ 8.0, level2_bounds.lx, 1e-8);
+        Assert::AreEqual(+ 0.0, level2_bounds.ly, 1e-8);
+        Assert::AreEqual(+16.0, level2_bounds.hx, 1e-8);
+        Assert::AreEqual(+ 8.0, level2_bounds.hy, 1e-8);
 
         quad_tree::compute_bounds_for_quad_key(26ull, bounds, level2_bounds);
-        Assert::AreEqual(-16.0f, level2_bounds.lx,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(+ 8.0f, level2_bounds.ly,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(- 8.0f, level2_bounds.hx,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(+16.0f, level2_bounds.hy,
-          std::numeric_limits<float>::epsilon());
+        Assert::AreEqual(-16.0, level2_bounds.lx, 1e-8);
+        Assert::AreEqual(+ 8.0, level2_bounds.ly, 1e-8);
+        Assert::AreEqual(- 8.0, level2_bounds.hx, 1e-8);
+        Assert::AreEqual(+16.0, level2_bounds.hy, 1e-8);
 
         quad_tree::compute_bounds_for_quad_key(27ull, bounds, level2_bounds);
-        Assert::AreEqual(- 8.0f, level2_bounds.lx,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(+ 8.0f, level2_bounds.ly,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(+ 0.0f, level2_bounds.hx,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(+16.0f, level2_bounds.hy,
-          std::numeric_limits<float>::epsilon());
+        Assert::AreEqual(- 8.0, level2_bounds.lx, 1e-8);
+        Assert::AreEqual(+ 8.0, level2_bounds.ly, 1e-8);
+        Assert::AreEqual(+ 0.0, level2_bounds.hx, 1e-8);
+        Assert::AreEqual(+16.0, level2_bounds.hy, 1e-8);
 
         quad_tree::compute_bounds_for_quad_key(30ull, bounds, level2_bounds);
-        Assert::AreEqual(+ 0.0f, level2_bounds.lx,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(+ 8.0f, level2_bounds.ly,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(+ 8.0f, level2_bounds.hx,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(+16.0f, level2_bounds.hy,
-          std::numeric_limits<float>::epsilon());
+        Assert::AreEqual(+ 0.0, level2_bounds.lx, 1e-8);
+        Assert::AreEqual(+ 8.0, level2_bounds.ly, 1e-8);
+        Assert::AreEqual(+ 8.0, level2_bounds.hx, 1e-8);
+        Assert::AreEqual(+16.0, level2_bounds.hy, 1e-8);
 
         quad_tree::compute_bounds_for_quad_key(31ull, bounds, level2_bounds);
-        Assert::AreEqual(+ 8.0f, level2_bounds.lx,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(+ 8.0f, level2_bounds.ly,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(+16.0f, level2_bounds.hx,
-          std::numeric_limits<float>::epsilon());
-        Assert::AreEqual(+16.0f, level2_bounds.hy,
-          std::numeric_limits<float>::epsilon());
+        Assert::AreEqual(+ 8.0, level2_bounds.lx, 1e-8);
+        Assert::AreEqual(+ 8.0, level2_bounds.ly, 1e-8);
+        Assert::AreEqual(+16.0, level2_bounds.hx, 1e-8);
+        Assert::AreEqual(+16.0, level2_bounds.hy, 1e-8);
       }
     }
 
@@ -1202,103 +1120,102 @@ namespace TestFastRankedPointInPolygon
 
     TEST_METHOD(TestInArbitraryFloatingPointSpaceComputeBounds)
     {
-      constexpr auto eps = std::numeric_limits<float>::epsilon();
-      const Rect global_bounds = { -9683.0f, -9913.0f, 9916.0f, 9824.0f };
+      constexpr auto eps = 1e-5;
+      const DoubleRect global_bounds = { -9683.0, -9913.0, 9916.0, 9824.0 };
       {
-        Rect bounds_4_depth1;
+        DoubleRect bounds_4_depth1;
         quad_tree::compute_bounds_for_quad_key(
           4ull,
           global_bounds,
           bounds_4_depth1);
-        Assert::AreEqual(-9683.0f, bounds_4_depth1.lx, eps);
-        Assert::AreEqual(-9913.0f, bounds_4_depth1.ly, eps);
-        Assert::AreEqual(+ 116.5f, bounds_4_depth1.hx, eps);
-        Assert::AreEqual(-  44.5f, bounds_4_depth1.hy, eps);
+        Assert::AreEqual(-9683.0, bounds_4_depth1.lx, eps);
+        Assert::AreEqual(-9913.0, bounds_4_depth1.ly, eps);
+        Assert::AreEqual(+ 116.5, bounds_4_depth1.hx, eps);
+        Assert::AreEqual(-  44.5, bounds_4_depth1.hy, eps);
       }
       {
-        Rect bounds_5_depth1;
+        DoubleRect bounds_5_depth1;
         quad_tree::compute_bounds_for_quad_key(
           5ull,
           global_bounds,
           bounds_5_depth1);
-        Assert::AreEqual(+ 116.5f, bounds_5_depth1.lx, eps);
-        Assert::AreEqual(-9913.0f, bounds_5_depth1.ly, eps);
-        Assert::AreEqual(+9916.0f, bounds_5_depth1.hx, eps);
-        Assert::AreEqual(-  44.5f, bounds_5_depth1.hy, eps);
+        Assert::AreEqual(+ 116.5, bounds_5_depth1.lx, eps);
+        Assert::AreEqual(-9913.0, bounds_5_depth1.ly, eps);
+        Assert::AreEqual(+9916.0, bounds_5_depth1.hx, eps);
+        Assert::AreEqual(-  44.5, bounds_5_depth1.hy, eps);
       }
       {
-        Rect bounds_6_depth1;
+        DoubleRect bounds_6_depth1;
         quad_tree::compute_bounds_for_quad_key(
           6ull,
           global_bounds,
           bounds_6_depth1);
-        Assert::AreEqual(-9683.0f, bounds_6_depth1.lx, eps);
-        Assert::AreEqual(-  44.5f, bounds_6_depth1.ly, eps);
-        Assert::AreEqual(+ 116.5f, bounds_6_depth1.hx, eps);
-        Assert::AreEqual(+9824.0f, bounds_6_depth1.hy, eps);
+        Assert::AreEqual(-9683.0, bounds_6_depth1.lx, eps);
+        Assert::AreEqual(-  44.5, bounds_6_depth1.ly, eps);
+        Assert::AreEqual(+ 116.5, bounds_6_depth1.hx, eps);
+        Assert::AreEqual(+9824.0, bounds_6_depth1.hy, eps);
       }
       {
-        Rect bounds_7_depth1;
+        DoubleRect bounds_7_depth1;
         quad_tree::compute_bounds_for_quad_key(
           7ull,
           global_bounds,
           bounds_7_depth1);
-        Assert::AreEqual(+ 116.5f, bounds_7_depth1.lx, eps);
-        Assert::AreEqual(-  44.5f, bounds_7_depth1.ly, eps);
-        Assert::AreEqual(+9916.0f, bounds_7_depth1.hx, eps);
-        Assert::AreEqual(+9824.0f, bounds_7_depth1.hy, eps);
+        Assert::AreEqual(+ 116.5, bounds_7_depth1.lx, eps);
+        Assert::AreEqual(-  44.5, bounds_7_depth1.ly, eps);
+        Assert::AreEqual(+9916.0, bounds_7_depth1.hx, eps);
+        Assert::AreEqual(+9824.0, bounds_7_depth1.hy, eps);
       }
     }
 
     TEST_METHOD(TestInAllFloatingPointSpaceComputeBounds)
     {
-      constexpr auto eps = std::numeric_limits<float>::epsilon();
-      constexpr auto maxf = std::numeric_limits<float>::max();
-      const Rect global_bounds = { -maxf, -maxf, +maxf, +maxf };
-      {
-        Rect bounds_4_depth1;
-        quad_tree::compute_bounds_for_quad_key(
-          4ull,
-          global_bounds,
-          bounds_4_depth1);
-        Assert::AreEqual(-maxf, bounds_4_depth1.lx, eps);
-        Assert::AreEqual(-maxf, bounds_4_depth1.ly, eps);
-        Assert::AreEqual(+0.0f, bounds_4_depth1.hx, eps);
-        Assert::AreEqual(-0.0f, bounds_4_depth1.hy, eps);
-      }
-      {
-        Rect bounds_5_depth1;
-        quad_tree::compute_bounds_for_quad_key(
-          5ull,
-          global_bounds,
-          bounds_5_depth1);
-        Assert::AreEqual(+0.0f, bounds_5_depth1.lx, eps);
-        Assert::AreEqual(-maxf, bounds_5_depth1.ly, eps);
-        Assert::AreEqual(+maxf, bounds_5_depth1.hx, eps);
-        Assert::AreEqual(+0.0f, bounds_5_depth1.hy, eps);
-      }
-      {
-        Rect bounds_6_depth1;
-        quad_tree::compute_bounds_for_quad_key(
-          6ull,
-          global_bounds,
-          bounds_6_depth1);
-        Assert::AreEqual(-maxf, bounds_6_depth1.lx, eps);
-        Assert::AreEqual(+0.0f, bounds_6_depth1.ly, eps);
-        Assert::AreEqual(+0.0f, bounds_6_depth1.hx, eps);
-        Assert::AreEqual(+maxf, bounds_6_depth1.hy, eps);
-      }
-      {
-        Rect bounds_7_depth1;
-        quad_tree::compute_bounds_for_quad_key(
-          7ull,
-          global_bounds,
-          bounds_7_depth1);
-        Assert::AreEqual(+0.0f, bounds_7_depth1.lx, eps);
-        Assert::AreEqual(+0.0f, bounds_7_depth1.ly, eps);
-        Assert::AreEqual(+maxf, bounds_7_depth1.hx, eps);
-        Assert::AreEqual(+maxf, bounds_7_depth1.hy, eps);
-      }
+      constexpr auto maxf = std::numeric_limits<double>::max();
+      const DoubleRect global_bounds = { -maxf, -maxf, +maxf, +maxf };
+      uint64_t quad_key = 0ull;
+      std::function<void ()> to_large =
+        [&]()
+        {
+          DoubleRect bounds_depth1;
+          quad_tree::compute_bounds_for_quad_key(
+            quad_key,
+            global_bounds,
+            bounds_depth1);
+        };
+      quad_key = 4ull;
+      Assert::ExpectException<std::runtime_error>(to_large);
+      quad_key = 5ull;
+      Assert::ExpectException<std::runtime_error>(to_large);
+      quad_key = 6ull;
+      Assert::ExpectException<std::runtime_error>(to_large);
+      quad_key = 7ull;
+      Assert::ExpectException<std::runtime_error>(to_large);
+    }
+
+    TEST_METHOD(TestBreakingCaseInQuadKeyBounds)
+    {
+      uint64_t quad_key = 1595024868027051ull;
+      DoubleRect global_bounds = {
+        -1.00000000e+10,
+        -1.00000000e+10,
+        1.00000000e+10,
+        1.00000000e+10
+      };
+      DoubleRect actual_bounds;
+      quad_tree::compute_bounds_for_quad_key(
+        quad_key,
+        global_bounds,
+        actual_bounds);
+      DoubleRect expect_bounds = {
+        598.37475395202637,
+        -593.71814155578613,
+        1189.7645893096924,
+        -2.3283061981201172
+      };
+      Assert::AreEqual(expect_bounds.lx, actual_bounds.lx, 1e-5);
+      Assert::AreEqual(expect_bounds.ly, actual_bounds.ly, 1e-5);
+      Assert::AreEqual(expect_bounds.hx, actual_bounds.hx, 1e-5);
+      Assert::AreEqual(expect_bounds.hy, actual_bounds.hy, 1e-5);
     }
 	};
 }

@@ -4,9 +4,11 @@
 #include "point_search.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cassert>
 #include <cmath>
 #include <deque>
+#include <fstream>
 #include <functional>
 #include <iostream>
 #include <mutex>
@@ -14,6 +16,30 @@
 #include <string>
 #include <thread>
 #include <vector>
+
+bool __stdcall intersect(
+  const DoubleRect& a,
+  const DoubleRect& b)
+{
+  bool ret = true;
+  ret &= a.lx <= b.hx;
+  ret &= a.hx >= b.lx;
+  ret &= a.ly <= b.hy;
+  ret &= a.hy >= b.ly;
+  return ret;
+}
+
+bool __stdcall intersect_point(
+  const Point& a,
+  const DoubleRect& b)
+{
+  bool ret = true;
+  ret &= a.x >= b.lx;
+  ret &= a.x <= b.hx;
+  ret &= a.y >= b.ly;
+  ret &= a.y <= b.hy;
+  return ret;
+}
 
 constexpr uint32_t x_integer_space_ = 0xFFFFFFFF;
 constexpr uint32_t y_integer_space_ = 0xFFFFFFFF;
@@ -31,13 +57,17 @@ uint64_t __stdcall only_msb64_on(register uint64_t x)
 
 int8_t __stdcall quad_tree::msb64(register uint64_t x)
 {
-  uint64_t depth = 31ull;
+  uint64_t depth = max_depth();
+
+  uint64_t max_bit = (1ull << (2ull * max_depth()));
+  uint64_t max_val = max_bit | (max_bit - 1);
+
   x = only_msb64_on(x);
   if (x & 0x0000000000000001ull) {
     depth = 0ull;
   } else if (x & 0x1000000000000000ull) {
     depth = max_depth();
-  } else if (x & 0x8000000000000000ull) {
+  } else if (x > max_val) {
     throw std::runtime_error("Invalid key provided to msb64.");
   } else {
     uint64_t mask = 0x0000000080000000ull;
@@ -85,33 +115,20 @@ int64_t __stdcall quad_tree::compact_by_1_bit(int64_t x)
 
 uint8_t __stdcall quad_tree::max_depth()
 {
-  return 31u;
-}
-
-uint32_t __stdcall quad_tree::max_rows(uint8_t depth)
-{
-  if (depth > max_depth()) {
-    return 0;
-  }
-  if (depth == 0) {
-    return 1;
-  }
-  return 1 << depth;
-}
-
-uint32_t __stdcall quad_tree::max_cols(uint8_t depth)
-{
-  if (depth > max_depth()) {
-    return 0;
-  }
-  return 1 << (depth + 1);
+  return 29u;
 }
 
 uint64_t __stdcall quad_tree::compute_quad_key(
   const Point& p,
   uint8_t depth,
-  const Rect& bounds)
+  const DoubleRect& bounds)
 {
+  if (depth > max_depth()) {
+    throw std::runtime_error(
+      std::to_string(depth) + " must be less than or equal to " +
+      std::to_string(max_depth()));
+  }
+
   double domain = static_cast<double>(bounds.hx) -
     static_cast<double>(bounds.lx);
   double range = static_cast<double>(bounds.hy) -
@@ -175,8 +192,11 @@ uint64_t __stdcall quad_tree::max_id(uint8_t depth)
 
 bool __stdcall quad_tree::is_valid(uint64_t quad_key)
 {
+  uint64_t max_bit = (1ull << (2ull * max_depth()));
+  uint64_t max_val = max_bit | (max_bit - 1);
+
   bool ret = true;
-  if (quad_key == 0 || quad_key > 0x8000000000000000) {
+  if (quad_key == 0 || quad_key > max_val) {
     ret = false;
   }
   return ret;
@@ -212,13 +232,24 @@ uint64_t __stdcall quad_tree::compute_parent(uint64_t child)
 
 void __stdcall quad_tree::compute_bounds_for_quad_key(
   uint64_t quad_key,
-  const Rect& global_bounds,
-  Rect& out_bounds)
+  const DoubleRect& global_bounds,
+  DoubleRect& out_bounds)
 {
   const double domain = static_cast<double>(global_bounds.hx) -
     static_cast<double>(global_bounds.lx);
   const double range = static_cast<double>(global_bounds.hy) -
     static_cast<double>(global_bounds.ly);
+
+  if (std::isinf(domain) || std::isinf(range)) {
+    std::string error_message = std::string(__FUNCTION__)
+      + std::string(" cannot handle such a large space consider")
+      + std::string(" reducing search space such that")
+      + std::string(" lx and ly are greater than or equal to ")
+      + std::to_string(-(std::numeric_limits<float>::max)())
+      + std::string(" and hx and hy are less than or equal to ")
+      + std::to_string(+(std::numeric_limits<float>::max)());
+    throw std::runtime_error(error_message);
+  }
 
   int8_t depth = msb64(quad_key) / 2;
   uint64_t step_size = step_size_at_depth(depth);
@@ -231,48 +262,51 @@ void __stdcall quad_tree::compute_bounds_for_quad_key(
   uint32_t y_bits_compressed = compact_by_1_bit(y_bits_shifted);
 
   const uint32_t shift = 32u - depth;
-  uint32_t x_bits_pos_ll = x_bits_compressed << shift;
-  uint32_t y_bits_pos_ll = y_bits_compressed << shift;
-  uint32_t x_bits_pos_ur = x_bits_pos_ll + step_size;
-  uint32_t y_bits_pos_ur = y_bits_pos_ll + step_size;
+  uint64_t x_bits_pos_ll = static_cast<uint64_t>(x_bits_compressed) << shift;
+  uint64_t y_bits_pos_ll = static_cast<uint64_t>(y_bits_compressed) << shift;
+  uint64_t x_bits_pos_ur = x_bits_pos_ll + step_size;
+  uint64_t y_bits_pos_ur = y_bits_pos_ll + step_size;
 
-  float ll_percent_x = static_cast<float>(static_cast<double>(x_bits_pos_ll)
-    / static_cast<double>(x_integer_space_));
-  float ll_percent_y = static_cast<float>(static_cast<double>(y_bits_pos_ll)
-    / static_cast<double>(y_integer_space_));
+  double x_integer_space_as_double = static_cast<double>(
+    static_cast<double>(x_integer_space_));
+  double y_integer_space_as_double = static_cast<double>(
+    static_cast<double>(y_integer_space_));
+ 
+  double ll_x_bits_as_double = static_cast<double>(x_bits_pos_ll);
+  double ll_percent_x = ll_x_bits_as_double / x_integer_space_as_double;
 
-  float ur_percent_x = static_cast<float>(static_cast<double>(x_bits_pos_ur)
-    / static_cast<double>(x_integer_space_));
-  float ur_percent_y = static_cast<float>(static_cast<double>(y_bits_pos_ur)
-    / static_cast<double>(y_integer_space_));
+  double ll_y_bits_as_double = static_cast<double>(y_bits_pos_ll);
+  double ll_percent_y = ll_y_bits_as_double / y_integer_space_as_double;
+
+  double ur_x_bits_as_double = static_cast<double>(x_bits_pos_ur);
+  double ur_percent_x = ur_x_bits_as_double / x_integer_space_as_double;
+
+  double ur_y_bits_as_double = static_cast<double>(y_bits_pos_ur);
+  double ur_percent_y = ur_y_bits_as_double / y_integer_space_as_double;
 
   double ll_x = ll_percent_x * domain;
   ll_x = global_bounds.lx + ll_x;
   if (std::isinf(ll_x)) {
-    ll_x = -(std::numeric_limits<float>::max)();
+    ll_x = -(std::numeric_limits<double>::max)();
   }
   double ll_y = ll_percent_y * range;
   ll_y = global_bounds.ly + ll_y;
   if (std::isinf(ll_y)) {
-    ll_y = -(std::numeric_limits<float>::max)();
+    ll_y = -(std::numeric_limits<double>::max)();
   }
 
   double ur_x = ur_percent_x * domain;
   ur_x = global_bounds.lx + ur_x;
   if (std::isinf(ur_x)) {
-    ur_x = +(std::numeric_limits<float>::max)();
+    ur_x = +(std::numeric_limits<double>::max)();
   }
   double ur_y = ur_percent_y * range;
   ur_y = global_bounds.ly + ur_y;
   if (std::isinf(ur_y)) {
-    ur_y = +(std::numeric_limits<float>::max)();
+    ur_y = +(std::numeric_limits<double>::max)();
   }
 
-  out_bounds = Rect{
-    static_cast<float>(ll_x),
-    static_cast<float>(ll_y),
-    static_cast<float>(ur_x),
-    static_cast<float>(ur_y) };
+  out_bounds = DoubleRect{ ll_x, ll_y, ur_x, ur_y };
 }
 
 uint32_t __stdcall quad_tree::step_size_at_depth(uint8_t depth)
@@ -280,8 +314,9 @@ uint32_t __stdcall quad_tree::step_size_at_depth(uint8_t depth)
   return x_integer_space_ >> depth;
 }
 
-quad_tree::node::node(uint64_t quad_key) :
-  quad_key_(quad_key)
+quad_tree::node::node(uint64_t quad_key, const DoubleRect& point_bounds) :
+  quad_key_(quad_key),
+  point_bounds_(point_bounds)
 {
   children_[0] = nullptr;
   children_[1] = nullptr;
@@ -351,7 +386,7 @@ __stdcall quad_tree::~quad_tree()
   destroy_tree(root_);
 }
 
-const Rect& __stdcall quad_tree::global_bounds() const
+const DoubleRect& __stdcall quad_tree::global_bounds() const
 {
   return global_bounds_;
 }
@@ -360,13 +395,19 @@ void __stdcall quad_tree::query(
   const Rect& query_rect,
   std::function<void(const Point & point)> contained_callback)
 {
-  traverse_tree_by_bounds(root_, query_rect, contained_callback);
+  DoubleRect internal_rect = {
+    query_rect.lx,
+    query_rect.ly,
+    query_rect.hx,
+    query_rect.hy
+  };
+  traverse_tree_by_bounds(root_, internal_rect, contained_callback);
 }
 
 void __stdcall quad_tree::compute_bounds(
     std::vector<Point*>::iterator begin,
     std::vector<Point*>::iterator end,
-    Rect& out_rect)
+    DoubleRect& out_rect)
 {
   float max_y = -(std::numeric_limits<float>::max)();
   float min_y = +(std::numeric_limits<float>::max)();
@@ -394,7 +435,8 @@ void __stdcall quad_tree::create(
   const std::size_t max_block_size)
 {
   compute_bounds(begin, end, global_bounds_);
-  root_ = new node(compute_quad_key(**begin, 0u, global_bounds_));
+  root_ = new node(compute_quad_key(**begin, 0u, global_bounds_),
+    global_bounds_);
   build_tree(root_, begin, end, 0u, min_block_size, max_block_size);
 }
 
@@ -412,11 +454,24 @@ void __stdcall quad_tree::build_tree(node* node,
   }
 
   typedef std::tuple<uint64_t, std::vector<Point*>, std::size_t> BucketItem_t;
-  std::function<quad_tree::node * (BucketItem_t&)> build_node =
-    [&](BucketItem_t& bucket_item)
+  std::function<quad_tree::node * (BucketItem_t&)>
+    build_node =
+    [&](BucketItem_t& bucket)
     {
-      auto& id = std::get<0>(bucket_item);
-      quad_tree::node* ret = new quad_tree::node(id);
+      auto& id = std::get<0>(bucket);
+      std::uint8_t depth = msb64(id) / 2;
+
+      DoubleRect point_bounds;
+      if (depth <= 0) {
+        compute_bounds_for_quad_key(id, global_bounds_, point_bounds);
+      } else {
+        compute_bounds(
+          std::get<1>(bucket).begin(),
+          std::get<1>(bucket).begin() + std::get<2>(bucket),
+          point_bounds);
+      }
+
+      quad_tree::node* ret = new quad_tree::node(id, point_bounds);
       return ret;
     };
 
@@ -479,18 +534,14 @@ void __stdcall quad_tree::build_tree(node* node,
 
 void __stdcall quad_tree::traverse_tree_by_bounds(
   node* curr,
-  const Rect& bounds,
+  const DoubleRect& bounds,
   std::function<void(const Point & point)> contained_callback)
 {
   if (curr == nullptr) {
     return;
-  } else {
-    Rect quad_key_bounds;
-    quad_tree::compute_bounds_for_quad_key(
-      curr->quad_key_,
-      global_bounds_,
-      quad_key_bounds);
-    if (intersect(bounds, quad_key_bounds)) {
+  }
+  else {
+    if (intersect(bounds, curr->point_bounds_)) {
       if (!curr->points_.empty()) {
         std::for_each(curr->points_.begin(), curr->points_.end(),
           [&](const Point& p)
@@ -552,7 +603,7 @@ void __stdcall quad_tree::print_tree(node* curr)
 {
   std::function<void (node*)> print_leaf = [this](node* to_print)
     {
-      Rect quad_key_bounds;
+      DoubleRect quad_key_bounds;
       quad_tree::compute_bounds_for_quad_key(
         to_print->quad_key_,
         global_bounds_,
@@ -575,7 +626,7 @@ void __stdcall quad_tree::print_tree(node* curr)
 
 void __stdcall quad_tree::get_buckets(std::vector<Point*>::iterator begin,
   std::vector<Point*>::iterator end, uint8_t depth, std::size_t count,
-  const Rect& global_bounds, Bucket_t& out_buckets)
+  const DoubleRect& global_bounds, Bucket_t& out_buckets)
 {
   const Point& ip = **begin;
   uint64_t p_pid = compute_quad_key(ip, depth, global_bounds);

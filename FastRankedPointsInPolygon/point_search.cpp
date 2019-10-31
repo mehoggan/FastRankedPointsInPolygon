@@ -2,14 +2,54 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <fstream>
+#include <mutex>
+#include <sstream>
+#include <string>
 #include <vector>
 
 #include "io.h"
 
+///////// Debug /////////
+void write_churchill_points_to_file(const Point* begin, const Point* end,
+  std::ofstream& out)
+{
+  out = std::ofstream("C:\\Users\\mehoggan\\Desktop\\churchhill.h",
+    std::ios_base::out);
+  std::vector<std::string> to_write = {
+    "#include <vector>\n",
+    "static const std::vector<Point> points = {\n"
+  };
+  std::for_each(to_write.begin(), to_write.end(),
+    [&](const std::string& line)
+    {
+      out.write(line.c_str(), line.length());
+      out.flush();
+    });
+  std::for_each(begin, end,
+    [&](const Point& p)
+    {
+      std::stringstream ss;
+      ss << "  " << p << "," << std::endl;
+      out.write(ss.str().c_str(), ss.str().length());
+      out.flush();
+    });
+  to_write = { "};\n" };
+  std::for_each(to_write.begin(), to_write.end(),
+    [&](const std::string& line)
+    {
+      out.write(line.c_str(), line.length());
+      out.flush();
+    });
+  out.close();
+}
+
 ///////// Search Context /////////
 SearchContext::SearchContext(cPointPtr points_begin, cPointPtr points_end) :
   quad_tree_(new quad_tree(points_begin, points_end, 5, 900))
-{}
+{
+  // write_churchill_points_to_file(points_begin, points_end, write_);
+}
 
 SearchContext::~SearchContext()
 {
@@ -21,7 +61,12 @@ quad_tree*& SearchContext::tree()
   return quad_tree_;
 }
 
-///////// Helper Function     /////////
+std::ofstream& SearchContext::write()
+{
+  return write_;
+}
+
+///////// Helper Function /////////
 __declspec(dllexport) bool __stdcall intersect(
   const Rect& a,
   const Rect& b)
@@ -61,6 +106,8 @@ __declspec(dllexport) SearchContext* __stdcall create(
   return sc;
 }
 
+static int check = 0;
+
 __declspec(dllexport) int32_t __stdcall search(
   SearchContext* sc,
   const Rect rect,
@@ -70,6 +117,11 @@ __declspec(dllexport) int32_t __stdcall search(
   if (sc == nullptr || count <= 0 || out_points == nullptr) {
     return 0;
   }
+
+  // Uncomment to visualize query rects used.
+  // std::stringstream ss;
+  // ss << rect;
+  // std::cout << std::endl << "  " << ss.str() << ",";
 
   int32_t end_i = 0;
   Point* end = nullptr;
