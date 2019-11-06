@@ -46,10 +46,8 @@ void write_churchill_points_to_file(const Point* begin, const Point* end,
 
 ///////// Search Context /////////
 SearchContext::SearchContext(cPointPtr points_begin, cPointPtr points_end) :
-  quad_tree_(new quad_tree(points_begin, points_end, 5, 900))
-{
-  // write_churchill_points_to_file(points_begin, points_end, write_);
-}
+  quad_tree_(new quad_tree(points_begin, points_end, 5, 1000))
+{}
 
 SearchContext::~SearchContext()
 {

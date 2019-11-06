@@ -395,11 +395,12 @@ private:
     const DoubleRect& global_bounds, Bucket_t& out_buckets);
 
   static std::size_t __stdcall points_to_vector(const Point* point_begin,
-    const Point* point_end, std::vector<Point*>& out_vec);
+    const Point* point_end, std::vector<Point*>& out_vec, quad_tree& t);
 
 private:
   node* root_;
   DoubleRect global_bounds_;
+  std::vector<Point> outliers_;
 };
 
 #endif

@@ -363,7 +363,7 @@ __stdcall quad_tree::quad_tree(
   std::ptrdiff_t size = std::distance(point_begin, point_end);
   Point* citer = const_cast<Point*>(point_begin);
   std::vector<Point*> points;
-  points_to_vector(point_begin, point_end, points);
+  points_to_vector(point_begin, point_end, points, *this);
   create(points.begin(), points.end(), min_block_size, max_block_size);
 }
 
@@ -402,6 +402,12 @@ void __stdcall quad_tree::query(
     query_rect.hy
   };
   traverse_tree_by_bounds(root_, internal_rect, contained_callback);
+
+  for (const Point& p : outliers_) {
+    if (intersect_point(p, internal_rect)) {
+      contained_callback(p);
+    }
+  }
 }
 
 void __stdcall quad_tree::compute_bounds(
@@ -638,7 +644,7 @@ void __stdcall quad_tree::get_buckets(std::vector<Point*>::iterator begin,
   out_buckets[3] = std::make_tuple(children[3], std::vector<Point*>(), 0ull);
   for (std::size_t i = 0; i < 4; ++i) {
     auto& v = std::get<1>(out_buckets[i]);
-    v.resize(count * .25, nullptr);
+    v.reserve(count);
   }
 
   const uint64_t min_id = std::get<0>(out_buckets[0]);
@@ -648,26 +654,39 @@ void __stdcall quad_tree::get_buckets(std::vector<Point*>::iterator begin,
     uint64_t c_pid = compute_quad_key(p, depth + 1, global_bounds);
     std::size_t bucket_index = c_pid - min_id;
     auto& vec = std::get<1>(out_buckets[bucket_index]);
-    std::size_t& index = std::get<2>(out_buckets[bucket_index]);
-    if (index >= vec.size()) {
-      vec.resize(vec.size() + (0.25 * count), nullptr);
-    }
-    vec[index] = &p;
-    ++index;
+    vec.push_back(&p);
     ++it;
+  }
+
+  for (std::size_t i = 0; i < 4; ++i) {
+    std::get<2>(out_buckets[i]) = std::get<1>(out_buckets[i]).size();
   }
 }
 
 std::size_t __stdcall quad_tree::points_to_vector(const Point* point_begin,
-  const Point* point_end, std::vector<Point*>& out_vec)
+  const Point* point_end, std::vector<Point*>& out_vec, quad_tree& t)
 {
   std::ptrdiff_t size = std::distance(point_begin, point_end);
   Point* citer = const_cast<Point*>(point_begin);
-  out_vec = std::vector<Point*>(size);
+  Point* piter = const_cast<Point*>(point_begin);
+  out_vec.clear();
+  out_vec.reserve(size);
   std::size_t i = 0;
   while (citer != point_end) {
-    out_vec[i] = citer;
+    bool insert = true;
+    if (piter != citer) {
+      double dist = std::sqrt(
+        std::pow(citer->x - piter->x, 2.0) +
+        std::pow(citer->y - piter->y, 2.0));
+      insert = (dist < 100000.0);
+    }
+    if (insert) {
+      out_vec.push_back(citer);
+    } else {
+      t.outliers_.push_back(*citer);
+    }
     ++i;
+    piter = citer;
     ++citer;
   }
   return size;
