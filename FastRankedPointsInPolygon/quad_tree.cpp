@@ -12,6 +12,7 @@
 #include <functional>
 #include <iostream>
 #include <mutex>
+#include <queue>
 #include <stdexcept>
 #include <string>
 #include <thread>
@@ -342,6 +343,11 @@ void __stdcall quad_tree::node::set_data(
     ++it;
     ++index;
   }
+  std::sort(points_.begin(), points_.end(),
+    [&](const Point& lhs, const Point& rhs)
+    {
+      return lhs.rank < rhs.rank;
+    });
 }
 
 void __stdcall quad_tree::node::set_child(const ChildId id, node* child)
@@ -391,21 +397,70 @@ const DoubleRect& __stdcall quad_tree::global_bounds() const
   return global_bounds_;
 }
 
+inline bool in_place_sort_points(
+  int32_t& end_i,
+  const int32_t& count,
+  Point* end_point,
+  const Point& point,
+  Point* out_points)
+{
+
+}
+
 void __stdcall quad_tree::query(
   const Rect& query_rect,
-  std::function<void(const Point & point)> contained_callback)
+  const int32_t count,
+  int32_t& end_i,
+  Point* out_points)
 {
-  DoubleRect internal_rect = {
+  DoubleRect bounds = {
     query_rect.lx,
     query_rect.ly,
     query_rect.hx,
     query_rect.hy
   };
-  traverse_tree_by_bounds(root_, internal_rect, contained_callback);
 
-  for (const Point& p : outliers_) {
-    if (intersect_point(p, internal_rect)) {
-      contained_callback(p);
+  std::queue<quad_tree::node*> queue;
+  queue.push(root_);
+
+  Point* end_point = nullptr;
+  while (not queue.empty()) {
+    quad_tree::node* curr = queue.front();
+    queue.pop();
+    if (intersect(bounds, curr->point_bounds_) && !curr->points_.empty()) {
+      std::size_t size = curr->points_.size();
+      for (std::size_t i = 0; i < size; ++i) {
+        Point& point = curr->points_[i];
+        if (intersect_point(point, bounds)) {
+          if (end_i == count && end_point && point.rank > end_point->rank) {
+            // The rest of the points in this node do not need to be
+            // considered.
+            break;
+          } else {
+            auto it = std::lower_bound(out_points, out_points + end_i, point);
+            std::int32_t i = std::distance(out_points, it);
+            Point tmp = out_points[i];
+            out_points[i] = point;
+            while (i <= end_i) {
+              ++i;
+              if (i < count) {
+                std::swap(tmp, out_points[i]);
+              }
+            }
+            if (i <= count && i > end_i) {
+              end_i = i;
+              end_point = &out_points[(std::min)(end_i, count - 1)];
+            }
+          }
+        }
+      }
+    } else {
+      for (std::size_t i = 0; i < 4; ++i) {
+        quad_tree::node* child = curr->children_[i];
+        if (child != nullptr && intersect(child->point_bounds_, bounds)) {
+          queue.push(child);
+        }
+      }
     }
   }
 }
@@ -534,39 +589,6 @@ void __stdcall quad_tree::build_tree(node* node,
     }
   } else {
     node->set_data(begin, end);
-  }
-
-}
-
-void __stdcall quad_tree::traverse_tree_by_bounds(
-  node* curr,
-  const DoubleRect& bounds,
-  std::function<void(const Point & point)> contained_callback)
-{
-  if (curr == nullptr) {
-    return;
-  }
-  else {
-    if (intersect(bounds, curr->point_bounds_)) {
-      if (!curr->points_.empty()) {
-        std::for_each(curr->points_.begin(), curr->points_.end(),
-          [&](const Point& p)
-          {
-            if (intersect_point(p, bounds)) {
-              contained_callback(p);
-            }
-          });
-      } else {
-        traverse_tree_by_bounds(
-          curr->children_[0], bounds, contained_callback);
-        traverse_tree_by_bounds(
-          curr->children_[1], bounds, contained_callback);
-        traverse_tree_by_bounds(
-          curr->children_[2], bounds, contained_callback);
-        traverse_tree_by_bounds(
-          curr->children_[3], bounds, contained_callback);
-      }
-    }
   }
 }
 

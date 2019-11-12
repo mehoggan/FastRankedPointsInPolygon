@@ -45,9 +45,11 @@ void write_churchill_points_to_file(const Point* begin, const Point* end,
 }
 
 ///////// Search Context /////////
-SearchContext::SearchContext(cPointPtr points_begin, cPointPtr points_end) :
-  quad_tree_(new quad_tree(points_begin, points_end, 5, 1000))
-{}
+SearchContext::SearchContext(cPointPtr points_begin, cPointPtr points_end)
+{
+  std::ptrdiff_t size = std::distance(points_begin, points_end);
+  quad_tree_ = new quad_tree(points_begin, points_end, 5, size / 512);
+}
 
 SearchContext::~SearchContext()
 {
@@ -116,35 +118,8 @@ __declspec(dllexport) int32_t __stdcall search(
     return 0;
   }
 
-  // Uncomment to visualize query rects used.
-  // std::stringstream ss;
-  // ss << rect;
-  // std::cout << std::endl << "  " << ss.str() << ",";
-
   int32_t end_i = 0;
-  Point* end = nullptr;
-  sc->tree()->query(rect,
-    [&](const Point& point)
-    {
-      if (end_i == count && point.rank > end->rank) {
-        return;
-      } else {
-        auto it = std::lower_bound(out_points, out_points + end_i, point);
-        std::int32_t i = std::distance(out_points, it);
-        Point tmp = out_points[i];
-        out_points[i] = point;
-        while (i <= end_i) {
-          ++i;
-          if (i < count) {
-            std::swap(tmp, out_points[i]);
-          }
-        }
-        if (i <= count && i > end_i) {
-          end_i = i;
-          end = &out_points[(std::min)(end_i, count - 1)];
-        }
-      }
-    });
+  sc->tree()->query(rect, count, end_i, out_points);
 
   return end_i;
 }

@@ -1,6 +1,7 @@
 #ifndef QUAD_TREE_H
 #define QUAD_TREE_H
 
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -318,18 +319,21 @@ public:
   const DoubleRect& __stdcall global_bounds() const;
 
   /// <summary>
-  /// This is how users find out what points are contained within the tree.
+  /// Additional query function skipping the call back and filling in
+  /// the sorted points and how many where inserted.
   /// </summary>
   /// <param name="query_rect">
-  /// The query_rect
+  /// The query_rect.
   /// </param>
-  /// <param name="contained_callback">
-  /// For each point that is intersected by <paramref name="query_rect"/>
-  /// this function is called with a reference to that point.
+  /// <param name="count">
+  /// Output parameter with the number of points inserted.
   /// </param>
-  /// <returns></returns>
-  void __stdcall query(const Rect& query_rect,
-    std::function<void(const Point & point)> contained_callback);
+  /// <param name="out_points">
+  /// The sorted points by rank.
+  /// </param>
+  /// <returns>The number of items visited.</returns>
+  void __stdcall query(const Rect& query_rect, const int32_t count,
+    int32_t& end_i, Point* out_points);
 
   /// <summary>
   /// Computes the number of points stored within the tree. O(log4 (N)) where
@@ -377,11 +381,6 @@ private:
     uint8_t depth,
     const std::size_t min_block_size,
     const std::size_t max_block_size);
-
-  void __stdcall traverse_tree_by_bounds(
-    node* curr,
-    const DoubleRect& bounds,
-    std::function<void(const Point & point)> contained_callback);
 
   void __stdcall print_tree(node* curr);
 
