@@ -13,28 +13,36 @@ namespace TestFastRankedPointInPolygon
 	TEST_CLASS(TestFastRankedPointInPolygon)
 	{
 	public:
-		TEST_METHOD(RectangleDoesNotIntersectToLeft)
+		TEST_METHOD(TestRectangleDoesNotIntersectToLeft)
 		{
       Rect a{ +0.00f, +0.00f, +1.00f, +1.00f };
       Rect b{ -1.00f, +0.00f, -0.01f, +1.00f };
       Assert::AreEqual(false, intersect(a, b));
 		}
 
-		TEST_METHOD(RectangleDoesNotIntersectBelow)
+		TEST_METHOD(TestRectangleDoesNotIntersectBelow)
 		{
       Rect a{ +0.00f, +0.00f, +1.00f, +1.00f };
       Rect b{ +0.00f, -1.00f, +1.00f, -0.01f };
       Assert::AreEqual(false, intersect(a, b));
 		}
 
-		TEST_METHOD(RectangleDoesNotIntersectToLeftBelow)
+		TEST_METHOD(TestRectangleDoesNotIntersectToLeftBelow)
 		{
       Rect a{ +0.00f, +0.00f, +1.00f, +1.00f };
       Rect b{ -1.00f, -1.00f, +0.00f, -0.01f };
       Assert::AreEqual(false, intersect(a, b));
 		}
 
-		TEST_METHOD(RectangleIntersectsSame)
+		TEST_METHOD(TestRectangleOverlayDoesIntersect)
+		{
+      Rect a{ +0.00f, +0.00f, +1.00f, +1.00f };
+      Rect b{ -0.50f, +0.25f, +0.50f, +0.75f };
+      Assert::AreEqual(true, intersect(a, b));
+      Assert::AreEqual(true, intersect(b, a));
+		}
+
+		TEST_METHOD(TestRectangleIntersectsSame)
 		{
       Rect a{ +0.00f, +0.00f, +1.00f, +1.00f };
       Rect b{ +0.00f, +0.00f, +1.00f, +1.00f };
@@ -618,7 +626,7 @@ namespace TestFastRankedPointInPolygon
       }
     }
 
-    TEST_METHOD(ComputeChildrenAndParent)
+    TEST_METHOD(TestComputeChildrenAndParent)
     {
       //  |-----------------------------| +16
       //  |                             |
